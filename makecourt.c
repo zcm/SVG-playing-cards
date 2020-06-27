@@ -269,9 +269,18 @@ main (int argc, const char *argv[])
    for (c = 0; c < sizeof (card) / sizeof (*card); c++)
    {
       char *fn;
-      if (!asprintf (&fn, "../svg/%s.svg", card[c]))
+      if (!asprintf (&fn, "svg/%s.svg", card[c])) {
          errx (1, "malloc");
-      cardxml[c] = xml_tree_read_file (fn);
+      }
+
+      printf("Transforming %s... ", fn);
+
+      if ((cardxml[c] = xml_tree_read_file (fn))) {
+         printf("OK!\n");
+      } else {
+         printf("File not found.\n");
+      }
+
       free (fn);
    }
    for (n = 0; n < sizeof (colour) / sizeof (*colour); n++)
