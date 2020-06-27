@@ -43,6 +43,8 @@ int modern = 0;
 int zero = 0;
 int one = 0;
 int eleven = 0;
+int twelve = 0;
+int thirteen = 0;
 int noborder = 0;
 int bleed = 0;
 int corner = 12;
@@ -89,7 +91,7 @@ const char *frontcolour = NULL;
 
 const char *dir = NULL;
 const char suits[] = "SHCD";
-const char values[] = "0123456789TEJQKA";
+const char values[] = "0123456789TEJQKAWD";
 const char *colour[4];
 const char *arrowcolours[] = { "red", "blue", "green", "purple", "orange" };
 
@@ -106,7 +108,7 @@ struct value_s
 {
    int stroke;
    const char *path;
-} value_path[VALUES][16];
+} value_path[VALUES][18];
 
 unsigned int duplimate_code[52];
 int pipwidth (char suit, int ph);
@@ -512,9 +514,16 @@ makecourt (xml_t root, char suit, char value)
    char *v = strchr (values, value);
    int bw,
      bh;
+
+   if (value == 'W' || value == 'D') {
+     return 0;
+   }
+
    makebox (&bw, &bh, suit, value);
    int layer = 0;
-   if ((!plain && !indexonly && (strchr ("JQK", value) || suit == 'J')) || ((*ace1 || *ace2) && !strcasecmp (ace, "Goodall") && suit == 'S' && value == 'A') || (!strcasecmp (back, "Goodall") && suit == 'B'))
+   if ((!plain && !indexonly && (strchr ("JQK", value) || suit == 'J'))
+       || ((*ace1 || *ace2) && !strcasecmp (ace, "Goodall") && suit == 'S' && value == 'A')
+       || (!strcasecmp (back, "Goodall") && suit == 'B'))
    {                            // Court/Joker
       int n = 12;               // Joker (whole card)
       if (ignis)
@@ -994,7 +1003,12 @@ makecard (char suit, char value)
 
    if (s && v)
    {                            // Pips
-      if (box && (indexonly || plain || !strchr ("JQK", value)) && ((!*ace1 && !*ace2) || !strcasecmp (ace, "Goodall") || (!one && suit != 'S') || value != 'A' || indexonly || plain))
+      if (box
+          && (indexonly || plain || !strchr ("JQK", value))
+          && ((!*ace1 && !*ace2)
+            || !strcasecmp (ace, "Goodall")
+            || (!one && suit != 'S')
+            || value != 'A' || indexonly || plain))
       {                         // Box (background)
          xml_t box = adddefX (root, bw, bh, suit, value);
          if (widthonuse)
@@ -1062,12 +1076,12 @@ makecard (char suit, char value)
          if (indexonly)
             return;
          // Face
-         if (strchr ("456789TE", value))
+         if (strchr ("456789TEWD", value))
          {                      // Top row
             pip (-px, y, THO * ph);
             pip (px, y, THO * ph);
          }
-         if (strchr ("9TE", value))
+         if (strchr ("9TEWD", value))
          {                      // Second row
             pip (-px, y / 3, THO * ph);
             pip (px, y / 3, THO * ph);
@@ -1078,6 +1092,16 @@ makecard (char suit, char value)
             pip (0, (!pipn) ? y * 4 / 5 : y / 2, THO * ph);     // Middle for 8
          if (strchr ("TE", value))
             pip (0, (!pipn) ? y * 4 / 5 : y * 2 / 3, THO * ph); // Middle for 10/11
+
+         if (value == 'W') {
+            pip (0, y, THO * ph);
+            pip (0, y / 3, THO * ph);
+         } else if (value == 'D') {
+            pip (0, y * 6 / 5, THO * ph);
+            //pip (0, y, THO * ph);
+            pip (0, y * 3 / 5, THO * ph);
+         }
+
          if (symmetric && strchr ("68", value))
          {
             if (noflip && y > 0)
@@ -1092,12 +1116,15 @@ makecard (char suit, char value)
             else
                pip (-px, y / 3, THO * ph);      // Left centre line
          }
-         if (symmetric && (!noflip || y > 0) && ((!one && suit != 'S') || value != 'A' || !strcasecmp (ace, "Plain")) && strchr ("A13579E", value))
+         if (symmetric
+             && (!noflip || y > 0)
+             && ((!one && suit != 'S') || value != 'A' || !strcasecmp (ace, "Plain"))
+             && strchr ("A13579ED", value))
             addclippathQ (pip (0, 0, THO * ph), suit);
       }
       void side (int pips, int idices)
       {                         // Symmetric pips
-         if (duplimate && s && v && value != 'E' && value != '1' && value != '0')
+         if (duplimate && s && v && value != 'E' && value != 'W' && value != 'D' && value != '1' && value != '0')
          {                      // 8.8mm for 13 bars, but end bars are 8/11 of others, 13.1mm from right edge, 5mm height
             xml_t x = addsymbolM (g, suit, value);
             xml_add (x, "@height", tho (THO * (bleed + 20 + (bleed ? 2 : 0)))); // 5mm ish plus a bit over edge of bleed
@@ -1310,7 +1337,7 @@ makecard (char suit, char value)
       {
          if (suit == 'C' && value == '9' && !noflip)
             pip (0, -THO * ph / 10, THO * ph);
-         else if (strchr ("1359E", value))
+         else if (strchr ("1359ED", value))
             pip (0, 0, THO * ph);
          if (strchr ("678", value))
          {
@@ -1402,6 +1429,8 @@ main (int argc, const char *argv[])
          {"zero", 0, POPT_ARG_NONE, &zero, 0, "Include a zero"},        //
          {"one", 0, POPT_ARG_NONE, &one, 0, "Include a one"},   //
          {"eleven", 0, POPT_ARG_NONE, &eleven, 0, "Include an eleven"}, //
+         {"twelve", 0, POPT_ARG_NONE, &twelve, 0, "Include a twelve"}, //
+         {"thirteen", 0, POPT_ARG_NONE, &thirteen, 0, "Include a thirteen"}, //
          {"ignis", 0, POPT_ARG_NONE, &ignis, 0, "Ignis Jokers"},        //
          {"modern", 0, POPT_ARG_NONE, &modern, 0, "Modern facing of court cards"},      //
          {"reverse", 0, POPT_ARG_NONE, &reverse, 0, "Reverse facing of court cards"},   //
@@ -1588,9 +1617,17 @@ main (int argc, const char *argv[])
                docard (suits[s], '0');
             if (!one && strcasecmp (ace, "None"))
                docard (suits[s], 'A');
-            for (v = 0; values[v]; v++)
-               if ((values[v] != 'A' && values[v] != '0' && values[v] != 'E' && values[v] != '1') || (one && values[v] == '1') || (eleven && values[v] == 'E'))
-                  docard (suits[s], values[v]);
+            for (v = 0; values[v]; v++) {
+               switch (values[v]) {
+                  case 'A':
+                  case '0': continue;
+                  case '1': if (!one) continue; else break;
+                  case 'E': if (!eleven) continue; else break;
+                  case 'W': if (!twelve) continue; else break;
+                  case 'D': if (!thirteen) continue; else break;
+               }
+               docard (suits[s], values[v]);
+            }
             if (one && strcasecmp (ace, "None"))
                docard (suits[s], 'A');
          }
@@ -1662,7 +1699,7 @@ struct pip_s pip_path[PIPS][4] = {      // Fill, target 800 wide (-400 to 400) a
 	  // *INDENT-ON*
 };
 
-struct value_s value_path[VALUES][16] = {       // Stroke 80, target -285 to 285, and -460 to 460 making around 610 by 1000
+struct value_s value_path[VALUES][18] = {       // Stroke 80, target -285 to 285, and -460 to 460 making around 610 by 1000
 	  // *INDENT-OFF*
   {				// Standard
    {80, "M-175 0L-175 -285A175 175 0 0 1 175 -285L175 285A175 175 0 0 1 -175 285Z"},	// 0
@@ -1675,12 +1712,15 @@ struct value_s value_path[VALUES][16] = {       // Stroke 80, target -285 to 285
    {80, "M-265 -320L-265 -460L265 -460C135 -200 -90 100 -90 460"},	// 7
    {80, "M-1 -50A205 205 0 1 1 1 -50L-1 -50A255 255 0 1 0 1 -50Z"},	// 8
    {80, "M250 -100A250 250 0 0 1 -250 -100L-250 -210A250 250 0 0 1 250 -210L250 210A250 250 0 0 1 0 460C-150 460 -180 400 -200 375"},	// 9
-   {80, "M-260 430L-260 -430M-50 0L-50 -310A150 150 0 0 1 250 -310L250 310A150 150 0 0 1 -50 310Z"},	// T
-   {80, "M-180 430L-180 -430M180 430L180 -430"},	// E
+   {80, "M-260 460L-260 -460M-50 0L-50 -310A150 150 0 0 1 250 -310L250 310A150 150 0 0 1 -50 310Z"},	// T
+   {80, "M-180 460L-180 -460M180 460L180 -460"},	// E
    {80, "M50 -460L250 -460M150 -460L150 250A100 100 0 0 1 -250 250L-250 220"},	// J
    {80, "M-260 100C40 100 -40 460 260 460M-175 0L-175 -285A175 175 0 0 1 175 -285L175 285A175 175 0 0 1 -175 285Z"},	// Q
    {80, "M-285 -460L-85 -460M-185 -460L-185 460M-285 460L-85 460M85 -460L285 -460M185 -440L-170 155M85 460L285 460M185 440L-10 -70"},	// K
    {80, "M-270 460L-110 460M-200 450L0 -460L200 450M110 460L270 460M-120 130L120 130"},	// A
+   // The second digit for numbers 12+ should be clamped from -50 to 250
+   {80, "M-260 460V -460M-93 -225C-110 -265 -71 -460 100 -460C 271 -460 293 -325 293 -225C293 -25 -93 160 -93 460L293 460L293 300"},	// W
+   {80, "M-260 460V -460M-114 -320L-114 -460L271 -460L6 -80C14 -90 57 -120 100 -120C271 -120 314 0 314 150C314 350 246 460 74 460C-97 460 -123 300 -123 300"},	// D
    },
   {
    {160, "M-160 -420v720M0 -420v60M160 -420v720M0 240v200"},	// 0
@@ -1699,6 +1739,8 @@ struct value_s value_path[VALUES][16] = {       // Stroke 80, target -285 to 285
    {160, "M-160 -200v60M0 -420v500M160 -200v60M-160 240v60M160 240v60"},	//Q
    {160, "M-160 -420v280M0 -420v720M-160 240v60"},	//K
    {160, "M-160 -420v60M0 -420v60M160 -420v720M-160 20v60M0 20v60"},	// A
+   {160, "M-160 -420v720M0 20v60M160 -420v60M160 20v280"},	// W
+   {160, "M-160 -420v720M0 20v60M160 -420v60M160 20v280"},	// D
    }
 	  // *INDENT-ON*
 };
