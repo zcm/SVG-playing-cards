@@ -57,7 +57,7 @@ int backmargin = 0;
 int pattern = -1;
 int number = 0;
 int fontsize = 20;
-int widthonuse = 0;
+int nowidthonuse = 0;
 int writeinline = 0;
 int jokers = 2;
 int blanks = 0;
@@ -185,7 +185,7 @@ adddefB (xml_t e, char value)
       xml_add (pat, "@id", id);
       xml_add (pat, "@width", tho (THO * pattern));
       xml_add (pat, "@height", tho (THO * pattern));
-      if (widthonuse)
+      if (!nowidthonuse)
          xml_add (pat, "@width", tho (THO * pattern));
       xml_add (pat, "@patternUnits", "userSpaceOnUse");
       if (!strcasecmp (back, "Illusion"))
@@ -264,9 +264,12 @@ addsymbolM (xml_t e, char suit, char value)
       return NULL;
    xml_t root = xml_tree_root (e);
    char id[4] = { suit, value, 'M' };
-   if (!findid (root, id))
+   xml_t defs = xml_find (root, "defs");
+   if (!defs || !findid (defs, id))
    {
-      xml_t symbol = xml_element_add_ns_after (root, NULL, "symbol", root);
+      if (!defs)
+         defs = xml_element_add_ns_after (root, NULL, "defs", root);
+      xml_t symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
       xml_add (symbol, "@id", id);
       xml_add (symbol, "@viewBox", "0 0 137 1");        // 8 wide edges, 11 wide bars
       xml_add (symbol, "@preserveAspectRatio", "none");
@@ -301,10 +304,13 @@ addsymbolsuit (xml_t e, char suit, char value, int *notfilledp)
       notfilled = 0;
    xml_t root = xml_tree_root (e);
    char id[4] = { 'S', suit, value };
-   if (!findid (root, id))
+   xml_t defs = xml_find (root, "defs");
+   if (!defs || !findid (defs, id))
    {
+      if (!defs)
+         defs = xml_element_add_ns_after (root, NULL, "defs", root);
       char *s = strchr (suits, suit);
-      xml_t symbol = xml_element_add_ns_after (root, NULL, "symbol", root);
+      xml_t symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
       xml_add (symbol, "@id", id);
       xml_add (symbol, "@viewBox", "-600 -600 1200 1200");
       xml_add (symbol, "@preserveAspectRatio", "xMinYMid");
@@ -334,11 +340,14 @@ addsymbolvalue (xml_t e, char suit, char value)
 {
    xml_t root = xml_tree_root (e);
    char id[4] = { 'V', suit, value };
-   if (!findid (root, id))
+   xml_t defs = xml_find (root, "defs");
+   if (!defs || !findid (defs, id))
    {
+      if (!defs)
+         defs = xml_element_add_ns_after (root, NULL, "defs", root);
       char *s = strchr (suits, suit);
       char *v = strchr (values, value);
-      xml_t symbol = xml_element_add_ns_after (root, NULL, "symbol", root);
+      xml_t symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
       xml_add (symbol, "@id", id);
       xml_add (symbol, "@viewBox", "-500 -500 1000 1000");
       xml_add (symbol, "@preserveAspectRatio", "xMinYMid");
@@ -362,9 +371,12 @@ addsymbolAA (xml_t e)
 {
    xml_t root = xml_tree_root (e);
    char *id = "AA";
-   if (!findid (root, id))
+   xml_t defs = xml_find (root, "defs");
+   if (!defs || !findid (defs, id))
    {
-      xml_t symbol = xml_element_add_ns_after (root, NULL, "symbol", root);
+      if (!defs)
+         defs = xml_element_add_ns_after (root, NULL, "defs", root);
+      xml_t symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
       xml_add (symbol, "@id", id);
       xml_add (symbol, "@viewBox", "-505 -505 1010 1010");
       xml_add (symbol, "@preserveAspectRatio", "xMinYMid");
@@ -385,9 +397,12 @@ addsymbolFB (xml_t e)
 {
    xml_t root = xml_tree_root (e);
    char *id = "FB";
-   if (!findid (root, id))
+   xml_t defs = xml_find (root, "defs");
+   if (!defs || !findid (defs, id))
    {
-      xml_t symbol = xml_element_add_ns_after (root, NULL, "symbol", root);
+      if (!defs)
+         defs = xml_element_add_ns_after (root, NULL, "defs", root);
+      xml_t symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
       xml_add (symbol, "@id", id);
       xml_add (symbol, "@viewBox", "0 0 150 120");
       xml_add (symbol, "@preserveAspectRatio", "xMinYMid");
@@ -539,7 +554,10 @@ makecourt (xml_t root, char suit, char value)
       {
          if (!path[n] || !*path[n])
             return;
-         symbol = xml_element_add (root, "symbol");
+         xml_t defs = xml_find (root, "defs");
+         if (!defs)
+            defs = xml_element_add_ns_after (root, NULL, "defs", root);
+         symbol = xml_element_add_ns_after (defs, NULL, "symbol", defs);
          xml_addf (symbol, "@id", "%c%c%d", suit, value, ++layer);
          xml_add (symbol, "@preserveAspectRatio", "none");      // Stretch to required size both ways
          xml_add (symbol, "@viewBox", "0 0 1300 2000");
@@ -597,7 +615,7 @@ makecourt (xml_t root, char suit, char value)
             {                   // Outline for black on black, or white background for grey
                xml_t x = addsymbolsuit (symbol, suit, value, &notfilled);
                xml_addf (x, "@height", "%d", pips[n][p].s);
-               if (widthonuse)
+               if (!nowidthonuse)
                   xml_addf (x, "@width", "%d", pips[n][p].s);
                xml_addf (x, "@transform", "translate(%d,%d)scale(1,%s)rotate(%d)translate(%d,%d)", pips[n][p].x, 2000 - pips[n][p].y, tho (THO * 20ULL * bw / 13ULL / bh), pips[n][p].r, -pips[n][p].s / 2, -pips[n][p].s / 2);
                xml_add (x, "@fill", "none");
@@ -612,7 +630,7 @@ makecourt (xml_t root, char suit, char value)
 
             xml_t x = addsymbolsuit (symbol, suit, value, &notfilled);
             xml_addf (x, "@height", "%d", pips[n][p].s);
-            if (widthonuse)
+            if (!nowidthonuse)
                xml_addf (x, "@width", "%d", pips[n][p].s);
             xml_addf (x, "@transform", "translate(%d,%d)scale(1,%s)rotate(%d)translate(%d,%d)", pips[n][p].x, 2000 - pips[n][p].y, tho (THO * 20ULL * bw / 13ULL / bh), pips[n][p].r, -pips[n][p].s / 2, -pips[n][p].s / 2);
             if (notfilled)
@@ -851,7 +869,7 @@ makeback (int n, char suit, char value)
       {
          xml_t logo = addsymbolFB (root);
          xml_add (logo, "@height", tho (THO * h / 3));
-         if (widthonuse)
+         if (!nowidthonuse)
             xml_add (logo, "@width", tho (THO * h / 3));
          xml_add (logo, "@x", tho (-THO * h / 5));
          xml_add (logo, "@y", tho (-THO * h / 3 - THO * h / 12));
@@ -859,7 +877,7 @@ makeback (int n, char suit, char value)
          logo = addsymbolFB (root);
          xml_add (logo, "@transform", "rotate(180)");
          xml_add (logo, "@height", tho (THO * h / 3));
-         if (widthonuse)
+         if (!nowidthonuse)
             xml_add (logo, "@width", tho (THO * h / 3));
          xml_add (logo, "@x", tho (-THO * h / 5));
          xml_add (logo, "@y", tho (-THO * h / 3 - THO * h / 12));
@@ -900,7 +918,7 @@ makeback (int n, char suit, char value)
                h = bw - THO * pattern * 2;
             xml_t logo = addsymbolAA (root);
             xml_add (logo, "@height", tho (h));
-            if (widthonuse)
+            if (!nowidthonuse)
                xml_add (logo, "@width", tho (h));
             xml_add (logo, "@x", tho (-h / 2));
             xml_add (logo, "@y", tho (-h / 2));
@@ -918,7 +936,7 @@ makeback (int n, char suit, char value)
                xml_t logo = addsymbolAA (g),
                   t;
                xml_add (logo, "@height", tho (w));
-               if (widthonuse)
+               if (!nowidthonuse)
                   xml_add (logo, "@width", tho (w));
                xml_add (logo, "@x", tho (-h));
                xml_add (logo, "@y", tho (-w));
@@ -1011,7 +1029,7 @@ makecard (char suit, char value)
             || value != 'A' || indexonly || plain))
       {                         // Box (background)
          xml_t box = adddefX (root, bw, bh, suit, value);
-         if (widthonuse)
+         if (!nowidthonuse)
          {
             xml_add (box, "@width", tho (bw));
             xml_add (box, "@height", tho (bh));
@@ -1021,7 +1039,7 @@ makecard (char suit, char value)
       } else if (frontcolour && strchr ("JQK", value) && !plain && !indexonly)
       {                         // Court background white
          xml_t box = adddefX (root, bw, bh, suit, value);
-         if (widthonuse)
+         if (!nowidthonuse)
          {
             xml_add (box, "@width", tho (bw));
             xml_add (box, "@height", tho (bh));
@@ -1061,7 +1079,7 @@ makecard (char suit, char value)
          if (notfilled && !ghost)
             xml_add (p, "@fill", colour[s - suits]);
          xml_add (p, "@height", tho (h));
-         if (widthonuse)
+         if (!nowidthonuse)
             xml_add (p, "@width", tho (h));
          xml_add (p, "@x", tho (x));
          xml_add (p, "@y", tho (y));
@@ -1139,7 +1157,7 @@ makecard (char suit, char value)
             {                   // Corner
                xml_t x = addsymbolvalue (g, suit, value);
                xml_add (x, "@height", tho (THO * vh));
-               if (widthonuse)
+               if (!nowidthonuse)
                   xml_add (x, "@width", tho (THO * vh));
                xml_add (x, "@x", tho (-THO * w / 2 + THO * margin - THO * vh / 5));
                xml_add (x, "@y", tho (-THO * h / 2 + THO * (topmargin > corner ? topmargin : corner)));
@@ -1148,7 +1166,7 @@ makecard (char suit, char value)
             {
                xml_t x = addsymbolvalue (g, suit, value);
                xml_add (x, "@height", tho (THO * vh));
-               if (widthonuse)
+               if (!nowidthonuse)
                   xml_add (x, "@width", tho (THO * vh));
                xml_add (x, "@x", tho (THO * w / 2 - THO * margin + THO * vh / 5 - THO * vh));
                xml_add (x, "@y", tho (-THO * h / 2 + THO * (topmargin > corner ? topmargin : corner)));
@@ -1217,7 +1235,7 @@ makecard (char suit, char value)
          {
             xml_t x = addsymbolvalue (g, suit, value);
             xml_add (x, "@height", tho (bw));
-            if (widthonuse)
+            if (!nowidthonuse)
                xml_add (x, "@width", tho (bw));
             xml_add (x, "@x", tho (-bw / 2));
             xml_add (x, "@y", tho (-bw / 2));
@@ -1449,7 +1467,7 @@ main (int argc, const char *argv[])
          {"suffix", 0, POPT_ARG_STRING, &suffix, 0, "Filename suffix", "text"}, //
          {"duplimate", 0, POPT_ARG_STRING, &duplimate, 0, "Barcode", "licence no"},     //
          {"aspect", 0, POPT_ARG_NONE, &aspect, 0, "Fix aspect ratio of court cards"},   //
-         {"width-on-use", 0, POPT_ARG_NONE, &widthonuse, 0, "Width on use objects (for wikimedia)"},    //
+         {"no-width-on-use", 0, POPT_ARG_NONE, &nowidthonuse, 0, "No width attribute on use objects"},  //
          {"card", 0, POPT_ARG_STRING, &card, 0, "One card", "[value][suit]"},   //
          {"inline", 0, POPT_ARG_NONE, &writeinline, 0, "Write to stdout"},      //
          {"jokers", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &jokers, 0, "Jokers", "N"},    //
