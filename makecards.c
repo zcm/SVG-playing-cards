@@ -122,20 +122,17 @@ int pipheight (char suit, int ph);
 char *
 stho (char *t, int v)
 {                               // Thousandths
-   char *p = t;
-   if (v < 0)
-   {
-      v = -v;
-      *p++ = '-';
+   char *p = t + sprintf(t, "%d", v);
+
+   for (v = 0; v < 3; ++v, --p) {
+     if (p[-1] == '0') {
+       p[-1] = '\0';
+     } else {
+       *p = p[-1];
+     }
    }
-   p += sprintf (p, "%d", v / 1000);
-   v %= 1000;
-   if (v % 10)
-      p += sprintf (p, ".%03d", v);
-   else if (v % 100)
-      p += sprintf (p, ".%02d", v / 10);
-   else if (v)
-      p += sprintf (p, ".%d", v / 100);
+
+   *p = p[1] ? '.' : '\0';
    return t;
 }
 
