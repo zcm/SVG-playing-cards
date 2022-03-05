@@ -112,7 +112,8 @@ unsigned int duplimate_code[52];
 int pipwidth(char suit, int ph);
 int pipheight(char suit, int ph);
 
-// Court card artwork - this is full path, for top half of court cards (SHCD then J-K within each), and joker (whole card)
+// Court card artwork - this is full path, for top half of court cards (SHCD
+// then J-K within each), and joker (whole card)
 #include "court.h"
 
 #define THO     1000
@@ -194,7 +195,8 @@ xml_t adddefB(xml_t e, char value) {
           q = THO * pattern / 12;
 
       xml_t path = xml_element_add(pat, "path");
-      xml_addf(path, "@d", "M0 0h%sv%sh%szM%s %sh%sv%sh%sz", tho(m), tho(m), tho(-m), tho(m), tho(m), tho(m), tho(m), tho(-m));
+      xml_addf(path, "@d", "M0 0h%sv%sh%szM%s %sh%sv%sh%sz",
+          tho(m), tho(m), tho(-m), tho(m), tho(m), tho(m), tho(m), tho(-m));
       xml_add(path, "@fill", colour[(value - '1') & 3]);
 
       int x, y;
@@ -202,19 +204,28 @@ xml_t adddefB(xml_t e, char value) {
       for (x = 0; x < 3; x++) {
         for (y = 0; y < 3; y++) {
           path = xml_element_add(pat, "path");
-          xml_addf(path, "@d", "M%s %sl%s %sl%s %sl%s %sl%s %sl%s %sz", tho(x * m), tho(y * m - q * 2), tho(q), tho(q), tho(-q * 2), tho(q * 2), tho(q), tho(q), tho(q), tho(-q), tho(-q * 2), tho(-q * 2));
+          xml_addf(path, "@d", "M%s %sl%s %sl%s %sl%s %sl%s %sl%s %sz",
+              tho(x * m), tho(y * m - q * 2), tho(q), tho(q),
+              tho(-q * 2), tho(q * 2), tho(q), tho(q), tho(q),
+              tho(-q), tho(-q * 2), tho(-q * 2));
           xml_add(path, "@opacity", "0.75");
-          xml_add(path, "@fill", (x + y) & 1 ? "white" : value == '2' ? black : red);
+          xml_add(path, "@fill",
+              (x + y) & 1 ? "white" : value == '2' ? black : red);
 
           path = xml_element_add(pat, "path");
-          xml_addf(path, "@d", "M%s %sl%s %sl%s %sl%s %sl%s %sl%s %sz", tho(x * m + q * 2), tho(y * m), tho(-q), tho(q), tho(-q * 2), tho(-q * 2), tho(-q), tho(q), tho(q), tho(q), tho(q * 2), tho(-q * 2));
+          xml_addf(path, "@d", "M%s %sl%s %sl%s %sl%s %sl%s %sl%s %sz",
+              tho(x * m + q * 2), tho(y * m), tho(-q), tho(q),
+              tho(-q * 2), tho(-q * 2), tho(-q), tho(q), tho(q),
+              tho(q), tho(q * 2), tho(-q * 2));
           xml_add(path, "@opacity", "0.75");
-          xml_add(path, "@fill", (x + y) & 1 ? value == '2' ? black : red : "white");
+          xml_add(path, "@fill",
+              (x + y) & 1 ? value == '2' ? black : red : "white");
         }
       }
     } else {
       xml_t path = xml_element_add(pat, "path");
-      xml_addf(path, "@d", "M%d 0L%d %dL%d %dL0 %dZ", pattern / 2, pattern, pattern / 2, pattern / 2, pattern, pattern / 2);
+      xml_addf(path, "@d", "M%d 0L%d %dL%d %dL0 %dZ",
+          pattern / 2, pattern, pattern / 2, pattern / 2, pattern, pattern / 2);
       xml_add(path, "@fill", colour[(value - '1') & 3]);
     }
   }
@@ -278,13 +289,14 @@ xml_t addsymbolM(xml_t e, char suit, char value) {
 
     xml_t symbol = xml_element_add_ns_after(defs, NULL, "symbol", defs);
     xml_add(symbol, "@id", id);
-    xml_add(symbol, "@viewBox", "0 0 137 1");           // 8 wide edges, 11 wide bars
+    xml_add(symbol, "@viewBox", "0 0 137 1");  // 8 wide edges, 11 wide bars
     xml_add(symbol, "@preserveAspectRatio", "none");
 
     char *d;
     size_t len;
     FILE *path = open_memstream(&d, &len);
-    unsigned int code = (duplimate_code[(s - suits) * 13 + (v - values)] << 1) + 0x1001;
+    unsigned int code =
+      (duplimate_code[(s - suits) * 13 + (v - values)] << 1) + 0x1001;
     int n;
 
     for (n = 0; n < 13; n++) {
@@ -339,7 +351,7 @@ xml_t addsymbolsuit(xml_t e, char suit, char value, int *notfilledp) {
     xml_add(symbol, "@viewBox", "-600 -600 1200 1200");
     xml_add(symbol, "@preserveAspectRatio", "xMinYMid");
 
-    if (symmetric) {            // Fix bounding box for clippathQ
+    if (symmetric) {  // Fix bounding box for clippathQ
       xml_t rect = xml_element_add(symbol, "rect");
       xml_add(rect, "@x", "-500");
       xml_add(rect, "@y", "-500");
@@ -389,7 +401,8 @@ xml_t addsymbolvalue(xml_t e, char suit, char value) {
     if (grey && ((s - suits) & 2)) {
       xml_add(path, "@opacity", "0.5");
     }
-    xml_addf(path, "@stroke-width", "%d", value_path[valuen][v - values].stroke);
+    xml_addf(path, "@stroke-width", "%d",
+        value_path[valuen][v - values].stroke);
     xml_add(path, "@stroke-linecap", "square");
     xml_add(path, "@stroke-miterlimit", "1.5");
     xml_add(path, "@fill", "none");
@@ -476,8 +489,8 @@ xml_t addsymbolFB(xml_t e) {
 }
 
 void makebox(int *bwp, int *bhp, char suit, char value) {
-  int bw = THO * w - THO * margin    * 2 - THO * vh * 8 / 5;  // Box width (tho)
-  int bh = THO * h - THO * topmargin * 2 - THO * vh * 8 / 5;  // Box height (tho)
+  int bw = THO * w - THO * margin    * 2 - THO * vh * 8 / 5;  // Box width
+  int bh = THO * h - THO * topmargin * 2 - THO * vh * 8 / 5;  // Box height
 
   if (strchr("JQK", value)) {
     bw += THO * courtgrow;  // extra width
@@ -522,8 +535,10 @@ xml_t makeroot(char suit, char value) {
       tho(-THO * h / 2 - THO * bleed),
       tho(THO * w + THO * bleed * 2),
       tho(THO * h + THO * bleed * 2));
-  xml_add(root, "@preserveAspectRatio", "none");  // Stretch to required size both ways
   xml_add(root, "@class", "card");
+
+  // Stretch to required size both ways
+  xml_add(root, "@preserveAspectRatio", "none");
 
   if (value && suit) {
     xml_addf(root, "@face", "%c%c", value, suit);
@@ -602,7 +617,9 @@ void writecard(xml_t root, char suit, char value) {  // Write out
 
     free(filename);
 
-    fprintf(f, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
+    fprintf(f,
+        "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
+
     xml_element_write(f, root, 1, 1);
     fclose(f);
   }
@@ -623,13 +640,16 @@ int makecourt(xml_t root, char suit, char value) {
 
   int layer = 0;
 
+  // Court/Joker
   if ((!plain && !indexonly && (strchr("JQK", value) || suit == 'J'))
-      || ((*ace1 || *ace2) && !strcasecmp(ace, "Goodall") && suit == 'S' && value == 'A')
-      || (!strcasecmp(back, "Goodall") && suit == 'B')) {  // Court/Joker
-    int n = 12;                 // Joker (whole card)
+      || ((*ace1 || *ace2)
+          && !strcasecmp(ace, "Goodall")
+          && suit == 'S' && value == 'A')
+      || (!strcasecmp(back, "Goodall") && suit == 'B')) {
+    int n = 12;  // Joker (whole card)
 
     if (ignis) {
-      n++;                      // Ignis alternative for joker
+      n++;  // Ignis alternative for joker
     }
     if (s && v) {
       n = (s - suits) * 3 + (v - strchr(values, 'J'));  // Court card
@@ -656,20 +676,24 @@ int makecourt(xml_t root, char suit, char value) {
 
       symbol = xml_element_add_ns_after(defs, NULL, "symbol", defs);
       xml_addf(symbol, "@id", "%c%c%d", suit, value, ++layer);
-      xml_add(symbol, "@preserveAspectRatio", "none");          // Stretch to required size both ways
       xml_add(symbol, "@viewBox", "0 0 1300 2000");
+
+      // Stretch to required size both ways
+      xml_add(symbol, "@preserveAspectRatio", "none");
 
       int swap = 0;
 
       if (!plain && !indexonly && n < 12) {
-        if (modern && ((value == 'Q' && suit != 'H') || (value == 'J' && suit != 'S'))) {
+        if (modern && ((value == 'Q' && suit != 'H')
+                       || (value == 'J' && suit != 'S'))) {
           swap = 1;
         }
         if (reverse) {
           swap = (!swap);
         }
         if (swap) {
-          symbol = xml_add(symbol, "g@transform", "scale(-1,1)translate(-1300,0)");
+          symbol = xml_add(
+              symbol, "g@transform", "scale(-1,1)translate(-1300,0)");
         }
       }
 
@@ -788,7 +812,8 @@ void makearrows(xml_t root, int bw, int bh, int n) {
       int q = rand() % (sizeof (arrowcolours) / sizeof (*arrowcolours));
 
       xml_t p = xml_element_add(root, "path");
-      xml_addf(p, "@transform", "translate(%s,%s)rotate(%d)", tho(x), tho(y), r);
+      xml_addf(p, "@transform", "translate(%s,%s)rotate(%d)",
+          tho(x), tho(y), r);
       xml_addf(p, "@d", "M0 %sL%s %sh%sz",
           tho(-THO * pattern / 3),
           tho(THO * pattern / 4),
@@ -813,20 +838,24 @@ void makearrows(xml_t root, int bw, int bh, int n) {
 void makemaze(xml_t root, int bw, int bh, int n) {
   srand(n * 1000);
 
-  int D = 1 * THO;              // Dividing line
-  int W = (bw - D * 2) / (THO * pattern),
-      H = (bh - D * 2) / (THO * pattern);       // Units W/H
+  int D = 1 * THO;  // Dividing line
 
-  W |= 1;                       // Odd size so centre is valid
+  // Units W/H
+  int W = (bw - D * 2) / (THO * pattern),
+      H = (bh - D * 2) / (THO * pattern);
+
+  // Odd size so centre is valid
+  W |= 1;
   H |= 1;
 
-  int U = bw / W;               // Unit spacing
+  int U = bw / W;  // Unit spacing
 
   if (bh / H < U) {
     U = bh / H;
   }
 
-  bw = U * W + D * 2;           // New width and height
+  // New width and height
+  bw = U * W + D * 2;
   bh = U * H + D * 2;
 
   xml_t rect = xml_element_add(root, "rect");
@@ -841,17 +870,18 @@ void makemaze(xml_t root, int bw, int bh, int n) {
   FILE *path = open_memstream(&d, &len);
   const int dx[] = { -1, 0, 1, 0 };
   const int dy[] = { 0, 1, 0, -1 };
-  char m[W][H];                 // Maze used
+  char m[W][H];  // Maze used
 
   memset(m, 0, W * H);
 
+  // x/y positions for back track
   int lx[W * H],
-      ly[W * H];                // x/y positions for back track
+      ly[W * H];
 
   memset(lx, 0, sizeof (int) * W * H);
   memset(ly, 0, sizeof (int) * W * H);
 
-  int l = 0;                    // Level for back track
+  int l = 0;  // Level for back track
   int x = W / 2,
       y = H / 2;
 
@@ -876,7 +906,7 @@ void makemaze(xml_t root, int bw, int bh, int n) {
     }
 
     // fprintf (stderr, "x=%d y=%d n=%d l=%d\n", x, y, n, l);
-    if (!n) {                   // back track
+    if (!n) {  // back track
       if (!l) {
         break;
       }
@@ -893,7 +923,9 @@ void makemaze(xml_t root, int bw, int bh, int n) {
     n = (rand() % n);
 
     for (d = 0; d < 4; d++) {
-      if (x + dx[d] >= 0 && x + dx[d] < W && y + dy[d] >= 0 && y + dy[d] < H && !m[x + dx[d]][y + dy[d]] && !n--) {
+      if (x + dx[d] >= 0 && x + dx[d] < W
+          && y + dy[d] >= 0 && y + dy[d] < H
+          && !m[x + dx[d]][y + dy[d]] && !n--) {
         break;
       }
     }
@@ -1034,7 +1066,8 @@ void makemarked(xml_t root, int bw, int bh, char suit, char value) {
       }
 
       xml_t p = xml_element_add(root, "path");
-      xml_addf(p, "@transform", "translate(%s,%s)rotate(%d)", tho(x), tho(y), r);
+      xml_addf(p, "@transform", "translate(%s,%s)rotate(%d)",
+          tho(x), tho(y), r);
       xml_addf(p, "@d", "M0 %sL%s %sh%sz",
           tho(-THO * pattern / 3),
           tho(THO * pattern / 4),
@@ -1495,7 +1528,8 @@ void makecard(char suit, char value) {
         int x = bw / 2 - pipwidth(suit, sx / 2) - THO * courtmargin;
 
         // int p = (old ? bw * 2 / 7 : bw / 3);      // size
-        int rightpip = ((value == 'Q' && suit != 'H') || (value == 'J' && suit != 'S'));
+        int rightpip = ((value == 'Q' && suit != 'H')
+                        || (value == 'J' && suit != 'S'));
 
         if (modern) {
           rightpip = 0;
@@ -1586,7 +1620,8 @@ void makecard(char suit, char value) {
             free(grid);
 
             xml_t q = xml_element_add(root, "path");
-            xml_addf(q, "@transform", "translate(0,-10)rotate(45)scale(%s)translate(%d,%d)",
+            xml_addf(q, "@transform",
+                "translate(0,-10)rotate(45)scale(%s)translate(%d,%d)",
                 tho(bw * 3 / S / 10),
                 -S / 2, -S / 2);
             xml_add(q, "@fill", frontcolour ? : "white");
@@ -1602,7 +1637,9 @@ void makecard(char suit, char value) {
       }
 
       // Ace of spades
-      if ((one || suit == 'S') && (*ace1 || *ace2) && strcasecmp(ace, "Goodall")) {
+      if ((one || suit == 'S')
+          && (*ace1 || *ace2)
+          && strcasecmp(ace, "Goodall")) {
         void addtext(xml_t e) {
           xml_t x;
 
@@ -1635,7 +1672,8 @@ void makecard(char suit, char value) {
           }
 
           if (duplimate) {
-            xml_t x = xml_addf(root, "+text", "Barcode patented by Jannersten, licence no. %s", duplimate);
+            xml_t x = xml_addf(root, "+text",
+                "Barcode patented by Jannersten, licence no. %s", duplimate);
             xml_addf(x, "@font-size", "6");
             xml_add(x, "@font-family", "Bariol");
             xml_add(x, "@text-anchor", "middle");
@@ -1813,7 +1851,8 @@ int main(int argc, const char *argv[]) {
     int c;
 
     if ((c = poptGetNextOpt(optCon)) < -1) {
-      errx(1, "%s: %s\n", poptBadOption(optCon, POPT_BADOPTION_NOALIAS), poptStrerror(c));
+      errx(1, "%s: %s\n",
+          poptBadOption(optCon, POPT_BADOPTION_NOALIAS), poptStrerror(c));
     }
 
     if (poptPeekArg(optCon) || (!dir && !writeinline)) {
@@ -1829,7 +1868,7 @@ int main(int argc, const char *argv[]) {
     errx(1, "Make you mind up");
   }
   if (print && !poker && !bridge) {
-    poker = 1;                  // default print
+    poker = 1;  // default print
   }
   if (poker) {
     width = (print ? "69mm" : "63mm");
@@ -1881,7 +1920,7 @@ int main(int argc, const char *argv[]) {
   if (interleave && !number) {
     number = 1;
   }
-  if (pattern < 0) {            // Default
+  if (pattern < 0) {  // Default
     if (!strcasecmp(back, "Illusion")) {
       pattern = 20;
     } else if (!strcasecmp(back, "Marked")) {
