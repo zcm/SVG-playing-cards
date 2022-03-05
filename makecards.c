@@ -575,18 +575,6 @@ void makebackground(xml_t root, char suit, char value) {
 }
 
 void writecard(xml_t root, char suit, char value) {  // Write out
-  char *filename;
-
-  if (number) {
-    if (!asprintf(&filename, "%s%03d%s.svg", prefix, number++, suffix)) {
-      errx(1, "Malloc");
-    }
-  } else {
-    if (!asprintf(&filename, "%s%c%c%s.svg", prefix, value, suit, suffix)) {
-      errx(1, "Malloc");
-    }
-  }
-
   if (writeinline) {
     if (card) {
       printf("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
@@ -594,6 +582,18 @@ void writecard(xml_t root, char suit, char value) {  // Write out
 
     xml_element_write(stdout, root, 1, 1);
   } else {
+    char *filename;
+
+    if (number) {
+      if (!asprintf(&filename, "%s%03d%s.svg", prefix, number++, suffix)) {
+        errx(1, "Malloc");
+      }
+    } else {
+      if (!asprintf(&filename, "%s%c%c%s.svg", prefix, value, suit, suffix)) {
+        errx(1, "Malloc");
+      }
+    }
+
     FILE *f = f = fopen(filename, "w");
 
     if (!f) {
