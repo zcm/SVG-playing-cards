@@ -5,6 +5,8 @@ MORE=
 CCOPTS=-I. -D_GNU_SOURCE -g -Wall -funsigned-char -IAXL -IQR -IReedsol -IImage -g
 OPTS=-LAXL ${CCOPTS}
 
+.PHONY: clean update uncrustify
+
 all: $(ALL)
 
 AXL/axl.o: AXL/axl.c
@@ -25,12 +27,13 @@ update:
 	git submodule update --init --recursive --remote
 	git commit -a -m "Library update"
 
+uncrustify: .uncrustify.cfg makecards.c makecourt.c
+	-uncrustify --replace --no-backup --mtime -c $?
+
 makecards: makecards.c Makefile AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o court.h
-	-indent -pmt $< 
 	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o -lcurl -lz
 
 makecourt: makecourt.c Makefile AXL/axl.o
-	-indent -pmt $< 
 	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o -lcurl
 
 SVGFILES := $(wildcard ../svg/??.svg)
