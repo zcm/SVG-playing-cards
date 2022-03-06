@@ -110,6 +110,23 @@ struct {
   {},  // IGNIS
 };
 
+void svg_compact_path(char *d) {
+  char *i = d,
+       *o = d;
+
+  while (*i) {
+    if ((isalpha(*i) && isspace(i[1]))
+        || (isdigit(*i) && isspace(i[1]) && isalpha(i[2]))) {
+      *o++ = *i++;
+      i++;
+    } else {
+      *o++ = *i++;
+    }
+  }
+
+  *o = 0;
+}
+
 int main(int argc, const char *argv[]) {
   xml_t cardxml[sizeof (card) / sizeof (*card)] = { };
   FILE *f = fopen("court.h", "w");
@@ -182,21 +199,7 @@ int main(int argc, const char *argv[]) {
                 *d = 'M';
               }
 
-              char *i = d,
-                   *o = d;
-
-              // Compact
-              while (*i) {
-                if ((isalpha(*i) && isspace(i[1]))
-                    || (isdigit(*i) && isspace(i[1]) && isalpha(i[2]))) {
-                  *o++ = *i++;
-                  i++;
-                } else {
-                  *o++ = *i++;
-                }
-              }
-
-              *o = 0;
+              svg_compact_path(d);
               fprintf(path, "%s", d);
             }
           }
