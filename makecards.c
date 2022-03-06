@@ -121,12 +121,13 @@ int pipheight(char suit, int ph);
 char *stho(char *t, int v) {   // Thousandths
   char *p = t + sprintf(t, "%d", v);
 
-  for (v = 0; v < 3; ++v, --p) {
-    if (p[-1] == '0') {
-      p[-1] = '\0';
-    } else {
-      *p = p[-1];
-    }
+  p[1] = '\0';
+
+  for (v = 0; v < 3 && p[-1] == '0'; ++v, --p) {
+    p[-1] = '\0';
+  }
+  for (; v < 3; ++v, --p) {
+    *p = p[-1];
   }
 
   *p = p[1] ? '.' : '\0';
