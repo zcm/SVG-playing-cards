@@ -36,6 +36,6 @@ makecards: makecards.c Makefile AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/imag
 makecourt: makecourt.c Makefile AXL/axl.o
 	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o -lcurl
 
-SVGFILES := $(wildcard ../svg/??.svg)
+SVGFILES := $(wildcard svg/??.svg)
 court.h: makecourt ${SVGFILES}
 	./makecourt
