@@ -127,6 +127,41 @@ void svg_compact_path(char *d) {
   *o = 0;
 }
 
+char *svg_merge_group_paths(xml_t g, const char *layer, const char *card) {
+  char *d;
+  size_t len;
+  FILE *path = open_memstream(&d, &len);
+  xml_t p = NULL;
+
+  while ((p = xml_element_next_by_name(g, p, "path"))) {
+    if (xml_get(p, "@transform")) {
+      errx(1, "Transform found on path in %s in %s", layer, card);
+    }
+
+    d = xml_get(p, "@d");
+
+    if (d) {
+      if (*d == 'm' && d[1] == ' ') {
+        // Special case for inkscape relative start
+        char *q = strchr(d + 2, ' ');
+
+        if (q && !isalpha(q[1])) {
+          *q = 'l';
+        }
+
+        *d = 'M';
+      }
+
+      svg_compact_path(d);
+      fprintf(path, "%s", d);
+    }
+  }
+
+  fclose(path);
+
+  return d;
+}
+
 int main(int argc, const char *argv[]) {
   xml_t cardxml[sizeof (card) / sizeof (*card)] = { };
   FILE *f = fopen("court.h", "w");
@@ -176,35 +211,7 @@ int main(int argc, const char *argv[]) {
         if (!g) {
           warnx("Cannot find %s in %s", color[n], card[c]);
         } else {
-          size_t len;
-          FILE *path = open_memstream(&d, &len);
-          xml_t p = NULL;
-
-          while ((p = xml_element_next_by_name(g, p, "path"))) {
-            if (xml_get(p, "@transform")) {
-              errx(1, "Transform found on path in %s in %s", color[n], card[c]);
-            }
-
-            d = xml_get(p, "@d");
-
-            if (d) {
-              if (*d == 'm' && d[1] == ' ') {
-                // Special case for inkscape relative start
-                char *q = strchr(d + 2, ' ');
-
-                if (q && !isalpha(q[1])) {
-                  *q = 'l';
-                }
-
-                *d = 'M';
-              }
-
-              svg_compact_path(d);
-              fprintf(path, "%s", d);
-            }
-          }
-
-          fclose(path);
+          d = svg_merge_group_paths(g, color[n], card[c]);
         }
       }
 

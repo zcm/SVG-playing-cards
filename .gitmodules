@@ -13,3 +13,6 @@
 [submodule "1dbar"]
 	path = 1dbar
 	url = https://github.com/revk/1dbar
+[submodule "flytools"]
+	path = flytools
+	url = https://github.com/zcm/flytools
