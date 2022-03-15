@@ -110,57 +110,7 @@ struct {
   {},  // IGNIS
 };
 
-void svg_compact_path(char *d) {
-  char *i = d,
-       *o = d;
-
-  while (*i) {
-    if ((isalpha(*i) && isspace(i[1]))
-        || (isdigit(*i) && isspace(i[1]) && isalpha(i[2]))) {
-      *o++ = *i++;
-      i++;
-    } else {
-      *o++ = *i++;
-    }
-  }
-
-  *o = 0;
-}
-
-char *svg_merge_group_paths(xml_t g, const char *layer, const char *card) {
-  char *d;
-  size_t len;
-  FILE *path = open_memstream(&d, &len);
-  xml_t p = NULL;
-
-  while ((p = xml_element_next_by_name(g, p, "path"))) {
-    if (xml_get(p, "@transform")) {
-      errx(1, "Transform found on path in %s in %s", layer, card);
-    }
-
-    d = xml_get(p, "@d");
-
-    if (d) {
-      if (*d == 'm' && d[1] == ' ') {
-        // Special case for inkscape relative start
-        char *q = strchr(d + 2, ' ');
-
-        if (q && !isalpha(q[1])) {
-          *q = 'l';
-        }
-
-        *d = 'M';
-      }
-
-      svg_compact_path(d);
-      fprintf(path, "%s", d);
-    }
-  }
-
-  fclose(path);
-
-  return d;
-}
+#include "shared.c"
 
 int main(int argc, const char *argv[]) {
   xml_t cardxml[sizeof (card) / sizeof (*card)] = { };
@@ -172,6 +122,8 @@ int main(int argc, const char *argv[]) {
 
   int n, c;
 
+  printf("%s: loading templates\n", basename(*argv));
+
   for (c = 0; c < sizeof (card) / sizeof (*card); c++) {
     char *filename;
 
@@ -179,16 +131,23 @@ int main(int argc, const char *argv[]) {
       errx(1, "malloc");
     }
 
-    printf("Transforming %s... ", filename);
+    printf(c % 4 ? "%s %s" : "%10s %s", "", filename);
+    fflush(stdout);
 
     if ((cardxml[c] = xml_tree_read_file(filename))) {
-      printf("OK!\n");
+      printf(" [OK] ");
     } else {
-      printf("File not found.\n");
+      printf(" [not found] ");
     }
+    if (c % 4 == 3) {
+      printf("\n");
+    }
+    fflush(stdout);
 
     free(filename);
   }
+
+  printf("\n");
 
   // New court card logic
   for (n = 0; n < sizeof (color) / sizeof (*color); n++) {

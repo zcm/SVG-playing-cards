@@ -24,6 +24,7 @@ flytools/build/libflytools.a: flytools/Makefile flytools/src/*.c flytools/includ
 	$(MAKE) -C flytools
 
 clean:
+	$(MAKE) -C flytools clean
 	rm -f $(ALL) $(MORE) makecourt court.h
 
 update:
@@ -33,10 +34,10 @@ update:
 uncrustify: .uncrustify.cfg makecards.c makecourt.c
 	-uncrustify --replace --no-backup --mtime -c $?
 
-makecards: makecards.c Makefile AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o court.h flytools/build/libflytools.a
+makecards: makecards.c shared.c Makefile AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o court.h flytools/build/libflytools.a
 	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o flytools/build/libflytools.a -lcurl -lz
 
-makecourt: makecourt.c Makefile AXL/axl.o flytools/build/libflytools.a
+makecourt: makecourt.c shared.c Makefile AXL/axl.o flytools/build/libflytools.a
 	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o flytools/build/libflytools.a -lcurl
 
 SVGFILES := $(wildcard svg/??.svg)

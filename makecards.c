@@ -19,6 +19,9 @@
 #include <iec18004.h>
 #include <image.h>
 
+#include <list.h>
+#include <dict.h>
+
 int debug = 0;
 int poker = 0;
 int bridge = 0;
@@ -68,6 +71,7 @@ int grey = 0;
 int fourcolour = 0;
 int pipn = 1;
 int valuen = 0;
+char *extra = NULL;
 const char *back = "Diamond";
 const char *ace = "Fancy";
 const char *ace1 = "www.me.uk";
@@ -76,24 +80,27 @@ const char *qr = NULL;
 const char *fontfamily = NULL;
 const char *fontweight = NULL;
 const char *card = NULL;
-const char *red = "red";
-const char *green = "green";
-const char *blue = "blue";
-const char *black = "black";
+char *red = "red";
+char *green = "green";
+char *blue = "blue";
+char *black = "black";
 const char *prefix = "";
 const char *suffix = "";
 const char *width = "2.5in";
 const char *height = "3.5in";
 const char *duplimate = NULL;
-const char *backcolour = NULL;
+char *backcolour = NULL;
 const char *backimage = NULL;
-const char *frontcolour = NULL;
+char *frontcolour = NULL;
 
 const char *dir = NULL;
 const char suits[] = "SHCD";
 const char values[] = "0123456789TEJQKAWD";
-const char *colour[4];
+char *colour[4];
 const char *arrowcolours[] = { "red", "blue", "green", "purple", "orange" };
+
+char *color_map_str = NULL;
+dict *color_map;
 
 #define PIPS 2
 struct pip_s {
@@ -115,6 +122,8 @@ int pipheight(char suit, int ph);
 // Court card artwork - this is full path, for top half of court cards (SHCD
 // then J-K within each), and joker (whole card)
 #include "court.h"
+
+#include "shared.c"
 
 #define THO     1000
 #define tho(v)  stho(alloca(20), v)
@@ -198,7 +207,7 @@ xml_t adddefB(xml_t e, char value) {
       xml_t path = xml_element_add(pat, "path");
       xml_addf(path, "@d", "M0 0h%sv%sh%szM%s %sh%sv%sh%sz",
           tho(m), tho(m), tho(-m), tho(m), tho(m), tho(m), tho(m), tho(-m));
-      xml_add(path, "@fill", colour[(value - '1') & 3]);
+      xml_add(path, "@fill", dict_gets(color_map, colour[(value - '1') & 3]));
 
       int x, y;
 
@@ -211,7 +220,8 @@ xml_t adddefB(xml_t e, char value) {
               tho(-q), tho(-q * 2), tho(-q * 2));
           xml_add(path, "@opacity", "0.75");
           xml_add(path, "@fill",
-              (x + y) & 1 ? "white" : value == '2' ? black : red);
+              dict_gets(color_map,
+                (x + y) & 1 ? "white" : value == '2' ? black : red));
 
           path = xml_element_add(pat, "path");
           xml_addf(path, "@d", "M%s %sl%s %sl%s %sl%s %sl%s %sl%s %sz",
@@ -220,14 +230,15 @@ xml_t adddefB(xml_t e, char value) {
               tho(q), tho(q * 2), tho(-q * 2));
           xml_add(path, "@opacity", "0.75");
           xml_add(path, "@fill",
-              (x + y) & 1 ? value == '2' ? black : red : "white");
+              dict_gets(color_map,
+                (x + y) & 1 ? value == '2' ? black : red : "white"));
         }
       }
     } else {
       xml_t path = xml_element_add(pat, "path");
       xml_addf(path, "@d", "M%d 0L%d %dL%d %dL0 %dZ",
           pattern / 2, pattern, pattern / 2, pattern / 2, pattern, pattern / 2);
-      xml_add(path, "@fill", colour[(value - '1') & 3]);
+      xml_add(path, "@fill", dict_gets(color_map, colour[(value - '1') & 3]));
     }
   }
 
@@ -364,7 +375,7 @@ xml_t addsymbolsuit(xml_t e, char suit, char value, int *notfilledp) {
     xml_t path = xml_element_add(symbol, "path");
     xml_add(path, "@d", pip_path[pipn][s - suits].path);
     if (!notfilled) {
-      xml_add(path, "@fill", colour[s - suits]);
+      xml_add(path, "@fill", dict_gets(color_map, colour[s - suits]));
     }
   }
 
@@ -398,7 +409,8 @@ xml_t addsymbolvalue(xml_t e, char suit, char value) {
 
     xml_t path = xml_element_add(symbol, "path");
     xml_add(path, "@d", value_path[valuen][v - values].path);
-    xml_add(path, "@stroke", ghost ? black : colour[s - suits]);
+    xml_add(path, "@stroke",
+        dict_gets(color_map, ghost ? black : colour[s - suits]));
     if (grey && ((s - suits) & 2)) {
       xml_add(path, "@opacity", "0.5");
     }
@@ -433,7 +445,7 @@ xml_t addsymbolAA(xml_t e) {
     xml_add(symbol, "+circle@r=505", NULL);
 
     xml_t path = xml_element_add(symbol, "path");
-    xml_add(path, "@fill", "white");
+    xml_add(path, "@fill", dict_gets(color_map, "white"));
     xml_add(path, "@d",
         "M495 0A495 495 0 0 1 -495 0A495 495 0 0 1 495 0"
         "M460 0A460 460 0 0 0 -460 0A460 460 0 0 0 460 0"
@@ -590,7 +602,20 @@ void makebackground(xml_t root, char suit, char value) {
   }
 }
 
-void writecard(xml_t root, char suit, char value) {  // Write out
+typedef struct layer {
+  char *color;
+  char *path;
+} layer_t;
+
+typedef struct excard {
+  char *name;
+  char value;
+  char suit;
+  list *layers;
+  int flip;  // 0 forces flip, 1 forces no flip; 2 is default behavior
+} excard;
+
+void writecard(xml_t root, char suit, char value, excard *extra_card) {  // Write out
   if (writeinline) {
     if (card) {
       printf("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>\n");
@@ -600,7 +625,11 @@ void writecard(xml_t root, char suit, char value) {  // Write out
   } else {
     char *filename;
 
-    if (number) {
+    if (extra_card) {
+      if (!asprintf(&filename, "%s%s%s.svg", prefix, extra_card->name, suffix)) {
+        errx(1, "Malloc");
+      }
+    } else if (number) {
       if (!asprintf(&filename, "%s%03d%s.svg", prefix, number++, suffix)) {
         errx(1, "Malloc");
       }
@@ -628,7 +657,70 @@ void writecard(xml_t root, char suit, char value) {  // Write out
   xml_tree_delete(root);
 }
 
-int makecourt(xml_t root, char suit, char value) {
+list *svg2layers(char *filename) {
+  xml_t g = NULL;
+  xml_t cardxml = xml_tree_read_file(filename);
+
+  if (!cardxml) {
+    return NULL;
+  }
+
+  list *layers = list_new();
+
+  while ((g = xml_element_next_by_name(cardxml, g, "g"))) {
+    char *color, *color_label = strdupa(xml_get(g, "@inkscape:label"));
+
+    if (color_label) {
+      color = strdupa(color_label);
+
+      for (int i = 0; color[i]; i++) {
+        color[i] = tolower(color[i]);
+      }
+
+      if ((color = (char *) dict_gets(color_map, color))) {
+        layer_t *layer = malloc(sizeof (layer_t));
+        layer->color = color;
+        layer->path = strdup(svg_merge_group_paths(g, color_label, filename));
+
+        list_unshift(layers, layer);
+      }
+    }
+  }
+
+  return layers;
+}
+
+void destroy_layer(layer_t *layer) {
+  free(layer->path);
+  free(layer);
+}
+
+excard *load_excard(char *name, char suit, char value) {
+  char *filename;
+
+  if (!asprintf(&filename, "svg/%s.svg", name)) {
+    errx(1, "malloc");
+  }
+
+  excard *card = malloc(sizeof (excard));
+
+  card->name = name;
+  card->suit = suit;
+  card->value = value;
+  card->layers = svg2layers(filename);
+  card->flip = 2;
+
+  free(filename);
+
+  return card;
+}
+
+void destroy_excard(excard *card) {
+  list_del(card->layers);
+  free(card);
+}
+
+int makecourt(xml_t root, char suit, char value, excard *extra_card) {
   char *s = strchr(suits, suit);
   char *v = strchr(values, value);
   int bw, bh;
@@ -664,11 +756,8 @@ int makecourt(xml_t root, char suit, char value) {
 
     xml_t symbol = NULL;  // So we know top layer for any suit symbols
 
-    void col(const char *path[15], const char *col) {
-      if (!path[n] || !*path[n]) {
-        return;
-      }
-
+    void col_path(
+        const char *path[15], const char *path_data, const char *col) {
       xml_t defs = xml_find(root, "defs");
 
       if (!defs) {
@@ -720,30 +809,48 @@ int makecourt(xml_t root, char suit, char value) {
               "M975.9082,215H995"
               "m-35,25 35,-55v55");
       } else {
-        xml_add(p, "@d", path[n]);
+        xml_add(p, "@d", path_data);
       }
     }
 
-    if (n > 13) {
-      col(Black_path, "black");
+    void col(const char *path[15], const char *col) {
+      if (!path[n] || !*path[n]) {
+        return;
+      }
+
+      col_path(path, path[n], col);
+    }
+
+    if (extra_card) {
+      int do_extra_card_color(void *each_layer, size_t _unused_index) {
+        col_path(NULL,
+            ((layer_t *) each_layer)->path,
+            ((layer_t *) each_layer)->color);
+        destroy_layer(each_layer);
+        return 0;
+      }
+
+      list_foreach(extra_card->layers, &do_extra_card_color);
+    } else if (n > 13) {
+      col(Black_path, dict_gets(color_map, "black"));
     } else if (ghost || (suit == 'J' && value == '2')) {
-      col(Blue_path, "black");
+      col(Blue_path, dict_gets(color_map, "black"));
       if (ghost && suit == 'J' && value == '1') {
-        col(Red_path, "red");
+        col(Red_path, dict_gets(color_map, "red"));
       }
-      col(Black_path, "black");
-      col(Stroke_path, "black");
-      col(Thin_path, "black");
+      col(Black_path, dict_gets(color_map, "black"));
+      col(Stroke_path, dict_gets(color_map, "black"));
+      col(Thin_path, dict_gets(color_map, "black"));
     } else {
-      col(Gold_path, "#FC4");
-      col(Red_path, "red");
-      col(Blue_path, "#44F");
-      col(Black_path, "black");
-      col(Stroke_path, "#44F");
-      col(Thin_path, "#44F");
+      col(Gold_path, dict_gets(color_map, "gold"));
+      col(Red_path, dict_gets(color_map, "red"));
+      col(Blue_path, dict_gets(color_map, "blue"));
+      col(Black_path, dict_gets(color_map, "black"));
+      col(Stroke_path, dict_gets(color_map, "stroke"));
+      col(Thin_path, dict_gets(color_map, "thin"));
     }
 
-    if (symbol && s && v) {
+    if (symbol && s && v && !extra_card) {
       int p = 0;
 
       while (p < sizeof (pips[0]) / sizeof (*pips[0]) && pips[n][p].s) {
@@ -784,10 +891,11 @@ int makecourt(xml_t root, char suit, char value) {
             /* translate(x,y) */ -pips[n][p].s / 2, -pips[n][p].s / 2);
         if (notfilled) {
           xml_add(x, "@fill",
-              (ghost && !(s - suits) % 2) ? "black" : colour[s - suits]);
+              dict_gets(color_map,
+                (ghost && !(s - suits) % 2) ? "black" : colour[s - suits]));
         }
         if (pips[n][p].border) {
-          xml_add(x, "@stroke", ghost ? black : "#44F");
+          xml_add(x, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
           xml_add(x, "@stroke-width", tho(THO * 6 * 1200 / pips[n][p].s));
           xml_add(x, "@stroke-linejoin", "round");
           xml_add(x, "@stroke-linecap", "round");
@@ -864,7 +972,7 @@ void makemaze(xml_t root, int bw, int bh, int n) {
   xml_add(rect, "@height", tho(bh));
   xml_add(rect, "@x", tho(-bw / 2));
   xml_add(rect, "@y", tho(-bh / 2));
-  xml_add(rect, "@fill", colour[n & 3]);
+  xml_add(rect, "@fill", dict_gets(color_map, colour[n & 3]));
 
   char *d = NULL;
   size_t len = 0;
@@ -965,7 +1073,7 @@ void makemaze(xml_t root, int bw, int bh, int n) {
       xml_addf(p, "@transform", "scale(%s)", tho(U), a);
     }
     xml_add(p, "@fill", "none");
-    xml_add(p, "@stroke", backcolour ? : "white");
+    xml_add(p, "@stroke", dict_gets(color_map, backcolour ? : "white"));
     xml_add(p, "@stroke-width", tho(THO - THO * D * 2 / U));
     xml_add(p, "@stroke-linecap", "square");
     xml_add(p, "@stroke-linejoin", "miter");
@@ -1095,7 +1203,8 @@ void makeback(int n, char suit, char value) {
       }
       xml_add(logo, "@x", tho(-THO * h / 5));
       xml_add(logo, "@y", tho(-THO * h / 3 - THO * h / 12));
-      xml_add(logo, "@fill", n ? ghost ? black : "#bd1220" : "white");
+      xml_add(logo, "@fill",
+          dict_gets(color_map, n ? ghost ? black : "firebrick" : "white"));
       logo = addsymbolFB(root);
       xml_add(logo, "@transform", "rotate(180)");
       xml_add(logo, "@height", tho(THO * h / 3));
@@ -1104,9 +1213,10 @@ void makeback(int n, char suit, char value) {
       }
       xml_add(logo, "@x", tho(-THO * h / 5));
       xml_add(logo, "@y", tho(-THO * h / 3 - THO * h / 12));
-      xml_add(logo, "@fill", n ? ghost ? black : "#bd1220" : "white");
+      xml_add(logo, "@fill",
+          dict_gets(color_map, n ? ghost ? black : "firebrick" : "white"));
     } else if (!strcasecmp(back, "Goodall")) {
-      makecourt(root, 'B', '1' + n);
+      makecourt(root, 'B', '1' + n, NULL);
       xml_t ace = xml_element_add(root, "use");
       xml_add(ace, "@height", tho(bh));
       xml_add(ace, "@width", tho(bw));
@@ -1149,7 +1259,8 @@ void makeback(int n, char suit, char value) {
         }
         xml_add(logo, "@x", tho(-h / 2));
         xml_add(logo, "@y", tho(-h / 2));
-        xml_add(logo, "@fill", n ? red : ghost ? black : "#008");
+        xml_add(logo, "@fill",
+            dict_gets(color_map, n ? red : ghost ? black : "darkblue"));
       } else if (!strcasecmp(back, "AA2")) {
         int h = bh / 2 / (THO * pattern * 2) * (THO * pattern * 2);
 
@@ -1173,7 +1284,8 @@ void makeback(int n, char suit, char value) {
           }
           xml_add(logo, "@x", tho(-h));
           xml_add(logo, "@y", tho(-w));
-          xml_add(logo, "@fill", n ? red : ghost ? black : "#008");
+          xml_add(logo, "@fill",
+              dict_gets(color_map, n ? red : ghost ? black : "darkblue"));
           xml_add(logo, "@transform", "rotate(-90)");
 
           void txt(void) {
@@ -1181,14 +1293,15 @@ void makeback(int n, char suit, char value) {
             xml_add(t, "@transform", "rotate(90)");
             xml_add(t, "@x", tho(-h + w + w / 4));
             xml_add(t, "@y", tho(-w / 2 + w / 10));
-            xml_add(t, "@fill", n ? red : ghost ? black : "#008");
+            xml_add(t, "@fill",
+                dict_gets(color_map, n ? red : ghost ? black : "darkblue"));
             xml_add(t, "@font-family", "Ebisu");
             xml_add(t, "@font-size", tho(w / 3));
             xml_add(t, "@font-weight", "300");
           }
 
           txt();
-          xml_add(t, "@stroke", "white");
+          xml_add(t, "@stroke", dict_gets(color_map, "white"));
           xml_addf(t, "@stroke-width", "%d", pattern);
           txt();
         }
@@ -1218,10 +1331,10 @@ void makeback(int n, char suit, char value) {
     xml_tree_delete(image);
   }
 
-  writecard(root, 'B', '1' + n);
+  writecard(root, 'B', '1' + n, NULL);
 }
 
-void makecard(char suit, char value) {
+void makecard(char suit, char value, excard *extra_card) {
   char *s = strchr(suits, suit);
   char *v = strchr(values, value);
   int bw, bh;
@@ -1229,7 +1342,7 @@ void makecard(char suit, char value) {
   makebox(&bw, &bh, suit, value);
   xml_t root = makeroot(suit, value);
 
-  int layer = makecourt(root, suit, value);
+  int layer = makecourt(root, suit, value, extra_card);
 
   makebackground(root, suit, value);
 
@@ -1245,7 +1358,8 @@ void makecard(char suit, char value) {
       xml_add(court, "@x", tho(-bw / 2));
       xml_add(court, "@y", tho(-bh / 2));
       xml_addf(court, "@xlink:href", "#%c%c%d", suit, value, n);
-      if (flip) {
+      if ((flip && (!extra_card || extra_card->flip))
+          || (extra_card && extra_card->flip == 1)) {
         court = xml_element_add(g, "use");
         xml_add(court, "@transform", "rotate(180)");
         xml_add(court, "@width", tho(bw));
@@ -1269,8 +1383,8 @@ void makecard(char suit, char value) {
         xml_add(box, "@width", tho(bw));
         xml_add(box, "@height", tho(bh));
       }
-      xml_add(box, "@stroke", ghost ? black : "#88f");
-      xml_add(box, "@fill", ghost ? "none" : "#FFC");
+      xml_add(box, "@stroke", dict_gets(color_map, ghost ? black : "lightslateblue"));
+      xml_add(box, "@fill", ghost ? "none" : dict_gets(color_map, "darkivory"));
     } else if (frontcolour && strchr("JQK", value) && !plain && !indexonly) {
       // Court background white
       xml_t box = adddefX(root, bw, bh, suit, value);
@@ -1279,7 +1393,7 @@ void makecard(char suit, char value) {
         xml_add(box, "@height", tho(bh));
       }
       xml_add(box, "@stroke", "none");
-      xml_add(box, "@fill", "white");
+      xml_add(box, "@fill", dict_gets(color_map, "white"));
     }
 
     // Pip positioning (outside of pips)
@@ -1322,7 +1436,7 @@ void makecard(char suit, char value) {
       y -= h / 2;
 
       if (notfilled && !ghost) {
-        xml_add(p, "@fill", colour[s - suits]);
+        xml_add(p, "@fill", dict_gets(color_map, colour[s - suits]));
       }
       xml_add(p, "@height", tho(h));
       if (!nowidthonuse) {
@@ -1454,7 +1568,7 @@ void makecard(char suit, char value) {
                 + THO * pipmargin + ph2 / 2,
                 ph2);
 
-            xml_add(p2, "@stroke", black);
+            xml_add(p2, "@stroke", dict_gets(color_map, black));
             xml_add(p2, "@stroke-width", "100");
             xml_add(p2, "@stroke-linejoin", "round");
             xml_add(p2, "@stroke-linecap", "round");
@@ -1468,7 +1582,7 @@ void makecard(char suit, char value) {
               ph2);
 
           if (ghost) {
-            xml_add(p2, "@fill", colour[s - suits]);
+            xml_add(p2, "@fill", dict_gets(color_map, colour[s - suits]));
           }
         }
 
@@ -1482,7 +1596,7 @@ void makecard(char suit, char value) {
                 + THO * pipmargin + ph2 / 2,
                 ph2);
 
-            xml_add(p2, "@stroke", black);
+            xml_add(p2, "@stroke", dict_gets(color_map, black));
             xml_add(p2, "@stroke-width", "100");
             xml_add(p2, "@stroke-linejoin", "round");
             xml_add(p2, "@stroke-linecap", "round");
@@ -1497,7 +1611,7 @@ void makecard(char suit, char value) {
               ph2);
 
           if (ghost) {
-            xml_add(p2, "@fill", colour[s - suits]);
+            xml_add(p2, "@fill", dict_gets(color_map, colour[s - suits]));
           }
         }
       }
@@ -1544,7 +1658,7 @@ void makecard(char suit, char value) {
 
         xml_t p = pip(x, -y, sx);
         if (ghost && !(s - suits) % 2) {
-          xml_add(p, "@fill", "black");
+          xml_add(p, "@fill", dict_gets(color_map, "black"));
         }
       }
     }
@@ -1576,15 +1690,15 @@ void makecard(char suit, char value) {
                  && (one || suit == 'S')) {
         if (!strcasecmp(ace, "Fancy") && suit == 'S') {
           xml_t x = pip(0, 0, bw);
-          xml_add(x, "@stroke", colour[0]);
+          xml_add(x, "@stroke", dict_gets(color_map, colour[0]));
           xml_add(x, "@stroke-width", "100");
           xml_add(x, "@stroke-dasharray", "100,100");
           xml_add(x, "@stroke-linecap", "round");
           x = pip(0, 0, bw);
-          xml_add(x, "@stroke", frontcolour ? : "white");
+          xml_add(x, "@stroke", dict_gets(color_map, frontcolour ? : "white"));
           xml_add(x, "@stroke-width", "50");
           x = pip(0, 0, bw);
-          xml_add(x, "@fill", colour[0]);
+          xml_add(x, "@fill", dict_gets(color_map, colour[0]));
         } else {
           pip(0, 0, bw);        // Simple big Ace
         }
@@ -1625,7 +1739,7 @@ void makecard(char suit, char value) {
                 "translate(0,-10)rotate(45)scale(%s)translate(%d,%d)",
                 tho(bw * 3 / S / 10),
                 -S / 2, -S / 2);
-            xml_add(q, "@fill", frontcolour ? : "white");
+            xml_add(q, "@fill", dict_gets(color_map, frontcolour ? : "white"));
             xml_add(q, "@stroke", "none");
             xml_add(q, "@d", d);
 
@@ -1653,7 +1767,7 @@ void makecard(char suit, char value) {
             if (fontweight) {
               xml_add(x, "@font-weight", fontweight);
             }
-            xml_add(x, "@fill", black);
+            xml_add(x, "@fill", dict_gets(color_map, black));
             xml_add(x, "@text-anchor", "middle");
             xml_add(x, "@y", tho(bh / 2 - THO * fontsize * 3 / 2));
           }
@@ -1667,7 +1781,7 @@ void makecard(char suit, char value) {
             if (fontweight) {
               xml_add(x, "@font-weight", fontweight);
             }
-            xml_add(x, "@fill", black);
+            xml_add(x, "@fill", dict_gets(color_map, black));
             xml_add(x, "@text-anchor", "middle");
             xml_add(x, "@y", tho(bh / 2 - THO * fontsize / 2));
           }
@@ -1678,7 +1792,7 @@ void makecard(char suit, char value) {
             xml_addf(x, "@font-size", "6");
             xml_add(x, "@font-family", "Bariol");
             xml_add(x, "@text-anchor", "middle");
-            xml_add(x, "@fill", black);
+            xml_add(x, "@fill", dict_gets(color_map, black));
             xml_add(x, "@y", tho(bh / 2));
           }
         }
@@ -1735,7 +1849,7 @@ void makecard(char suit, char value) {
     // Box (overlay for court card artwork)
     if (strchr("JQK", value) && !plain && !indexonly) {
       xml_t box = adddefX(root, bw, bh, suit, value);
-      xml_add(box, "@stroke", ghost ? black : "#44F");
+      xml_add(box, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
       xml_add(box, "@fill", "none");
     }
   }
@@ -1755,9 +1869,9 @@ void makecard(char suit, char value) {
       xml_add(x, "@transform", "rotate(60)");
       xml_add(x, "@y", "20");
       if (value == '2') {
-        xml_add(x, "@fill", red);
+        xml_add(x, "@fill", dict_gets(color_map, red));
         if (ghost) {
-          xml_add(x, "@stroke", black);
+          xml_add(x, "@stroke", dict_gets(color_map, black));
         }
       }
     } else {
@@ -1769,7 +1883,7 @@ void makecard(char suit, char value) {
     xml_add(root, "g@id", "artwork");
   }
 
-  writecard(root, suit, value);
+  writecard(root, suit, value, extra_card);
 }
 
 int main(int argc, const char *argv[]) {
@@ -1805,6 +1919,8 @@ int main(int argc, const char *argv[]) {
       { "eleven", 0, POPT_ARG_NONE, &eleven, 0, "Include an eleven" },
       { "twelve", 0, POPT_ARG_NONE, &twelve, 0, "Include a twelve" },
       { "thirteen", 0, POPT_ARG_NONE, &thirteen, 0, "Include a thirteen" },
+      { "extra", 0, POPT_ARG_STRING, &extra, 0, "Extra cards to include (comma-separated)" },
+      { "color-map", 0, POPT_ARG_STRING, &color_map_str, 0, "Mapping of layer colors to output colors" },
       { "ignis", 0, POPT_ARG_NONE, &ignis, 0, "Ignis Jokers" },
       { "modern", 0, POPT_ARG_NONE, &modern, 0, "Modern facing of court cards" },
       { "reverse", 0, POPT_ARG_NONE, &reverse, 0, "Reverse facing of court cards" },
@@ -1958,6 +2074,97 @@ int main(int argc, const char *argv[]) {
     colour[3] = red;
   }
 
+  color_map = dict_new(64);
+  dict_puts(color_map, "gold", "#FC4");
+  dict_puts(color_map, "red", "red");
+  dict_puts(color_map, "blue", "#44F");
+  dict_puts(color_map, "green", "green");
+  dict_puts(color_map, "purple", "purple");
+  dict_puts(color_map, "orange", "orange");
+  dict_puts(color_map, "white", "white");
+  dict_puts(color_map, "black", "black");
+  dict_puts(color_map, "darkblue", "#008");
+  dict_puts(color_map, "firebrick", "#bd1220");
+  dict_puts(color_map, "lightslateblue", "#88f");
+  dict_puts(color_map, "darkivory", "#FFC");
+  dict_puts(color_map, "stroke", "#44F");
+  dict_puts(color_map, "thin", "#44F");
+
+  if (color_map_str) {
+    char *color_from = strtok_r(color_map_str, ",", &color_map_str);
+    char *color_to = NULL;
+
+    while (color_from) {
+      if (!(color_to = strchr(color_from, '='))) {
+        errx(1, "invalid color mapping");
+      }
+
+      char *modifier = color_to - 1;
+
+      *color_to++ = '\0';
+
+      dict_removes(color_map, color_from);
+
+      if (*modifier != ':') {
+        dict_puts(color_map, color_from, color_to);
+      } else {
+        char *color_ref = dict_gets(color_map, color_to);
+
+        if (!color_ref) {
+          errx(1, "invalid color reference '%s'", color_to);
+        }
+
+        *modifier = '\0';
+
+        dict_puts(color_map, color_from, color_ref);
+      }
+
+      color_from = strtok_r(NULL, ",", &color_map_str);
+    }
+  }
+
+  list *extras = NULL;
+
+  if (extra) {
+    char *token = strtok_r(extra, ",", &extra);
+    char *split = NULL;
+
+    extras = list_new();
+
+    while (token) {
+      char value = 0, suit = 0;
+
+      if ((split = strchr(token, ':'))) {
+        *split++ = '\0';
+        if (*split) {
+          value = *split++;
+          if (*split) {
+            suit = *split;
+          }
+        }
+      }
+
+      excard *extra_card = load_excard(token, suit, value);
+
+      if ((split = strchr(split, ':'))) {
+        while (++*split) {
+          switch (*split) {
+            case 'N':
+              extra_card->flip = 0;
+              break;
+            case 'F':
+              extra_card->flip = 1;
+              break;
+          }
+        }
+      }
+
+      list_unshift(extras, extra_card);
+
+      token = strtok_r(NULL, ",", &extra);
+    }
+  }
+
   // Let's make some cards
   srand(0);
   if (dir && chdir(dir)) {
@@ -1967,7 +2174,7 @@ int main(int argc, const char *argv[]) {
     if (card[1] == 'B') {
       makeback(card[0] - '1', 0, 0);
     } else {
-      makecard(card[1], card[0]);
+      makecard(card[1], card[0], NULL);
     }
   } else {
     int s, v, d, decks = 1;
@@ -1992,13 +2199,17 @@ int main(int argc, const char *argv[]) {
     }
 
     for (d = 0; d < decks; d++) {
-      void docard(char s, char v) {
+      void docardextra(char s, char v, excard *extra) {
         startcard();
-        makecard(s, v);
+        makecard(s, v, extra);
         if (interleave) {
           makeback(d, s, v);
         }
         endcard();
+      }
+
+      void docard(char s, char v) {
+        docardextra(s, v, NULL);
       }
 
       for (v = 0; v < blanks && v < 9; v++) {
@@ -2037,6 +2248,18 @@ int main(int argc, const char *argv[]) {
         docard('J', '1' + v);
       }
 
+      if (extras) {
+        int do_extras(void *extra_card_ptr, size_t _unused_index) {
+          excard *extra_card = (excard *) extra_card_ptr;
+          docardextra(extra_card->suit, extra_card->value, extra_card);
+          destroy_excard(extra_card);
+          return 0;
+        }
+
+        list_foreach(extras, &do_extras);
+        list_del(extras);
+      }
+
       if (interleave && doubleback) {
         if (doubleback == backs) {
           for (v = 0; v < doubleback; v++) {
@@ -2064,6 +2287,8 @@ int main(int argc, const char *argv[]) {
       }
     }
   }
+
+  dict_del(color_map);
 
   return 0;
 }
