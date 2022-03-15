@@ -613,6 +613,7 @@ typedef struct excard {
   char suit;
   list *layers;
   int flip;  // 0 forces flip, 1 forces no flip; 2 is default behavior
+  int rightpip;
 } excard;
 
 void writecard(xml_t root, char suit, char value, excard *extra_card) {  // Write out
@@ -709,6 +710,7 @@ excard *load_excard(char *name, char suit, char value) {
   card->value = value;
   card->layers = svg2layers(filename);
   card->flip = 2;
+  card->rightpip = 0;
 
   free(filename);
 
@@ -1643,8 +1645,9 @@ void makecard(char suit, char value, excard *extra_card) {
         int x = bw / 2 - pipwidth(suit, sx / 2) - THO * courtmargin;
 
         // int p = (old ? bw * 2 / 7 : bw / 3);      // size
-        int rightpip = ((value == 'Q' && suit != 'H')
-                        || (value == 'J' && suit != 'S'));
+        int rightpip = extra_card ? extra_card->rightpip
+                                  : ((value == 'Q' && suit != 'H')
+                                      || (value == 'J' && suit != 'S'));
 
         if (modern) {
           rightpip = 0;
@@ -2147,13 +2150,16 @@ int main(int argc, const char *argv[]) {
       excard *extra_card = load_excard(token, suit, value);
 
       if ((split = strchr(split, ':'))) {
-        while (++*split) {
+        while (*(++split)) {
           switch (*split) {
             case 'N':
               extra_card->flip = 0;
               break;
             case 'F':
               extra_card->flip = 1;
+              break;
+            case 'R':
+              extra_card->rightpip = 1;
               break;
           }
         }
