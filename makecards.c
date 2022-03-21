@@ -724,6 +724,12 @@ excard *load_excard(char *name, char suit, char value) {
 }
 
 void destroy_excard(excard *card) {
+  void *layer;
+
+  while ((layer = list_pop(card->layers))) {
+    destroy_layer(layer);
+  }
+
   list_del(card->layers);
   free(card);
 }
@@ -834,7 +840,6 @@ int makecourt(xml_t root, char suit, char value, excard *extra_card) {
         col_path(NULL,
             ((layer_t *) each_layer)->path,
             ((layer_t *) each_layer)->color);
-        destroy_layer(each_layer);
         return 0;
       }
 
@@ -2283,12 +2288,10 @@ int main(int argc, const char *argv[]) {
         int do_extras(void *extra_card_ptr, size_t _unused_index) {
           excard *extra_card = (excard *) extra_card_ptr;
           docardextra(extra_card->suit, extra_card->value, extra_card);
-          destroy_excard(extra_card);
           return 0;
         }
 
         list_foreach(extras, &do_extras);
-        list_del(extras);
       }
 
       if (interleave && doubleback) {
@@ -2317,6 +2320,16 @@ int main(int argc, const char *argv[]) {
         endcard();
       }
     }
+  }
+
+  if (extras) {
+    void *item_ptr;
+
+    while ((item_ptr = list_pop(extras))) {
+      destroy_excard(item_ptr);
+    }
+
+    list_del(extras);
   }
 
   dict_del(color_map);
