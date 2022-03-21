@@ -55,6 +55,7 @@ int corner = 12;
 int margin = 12;
 int pipmargin = 5;
 int courtgrow = 0;
+int court_border_width = 0;
 int courtmargin = 2;
 int topmargin = 0;
 int backmargin = 0;
@@ -1378,6 +1379,11 @@ void makecard(char suit, char value, excard *extra_card) {
   void court_border() {
     xml_t box = adddefX(root, bw, bh, suit, value);
     xml_add(box, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
+    if (court_border_width) {
+      char cbw[12];
+      sprintf(cbw, "%d", court_border_width);
+      xml_add(box, "@stroke-width", cbw);
+    }
     xml_add(box, "@fill", "none");
   }
 
@@ -1924,6 +1930,7 @@ int main(int argc, const char *argv[]) {
       { "margin-back", 0, POPT_ARG_INT, &backmargin, 0, "Back margin", "pixels" },
       { "margin-pip", 0, POPT_ARG_INT, &pipmargin, 0, "Pip margin", "pixels" },
       { "court-grow", 0, POPT_ARG_INT, &courtgrow, 0, "Extra width on court cards", "pixels" },
+      { "court-border-width", 0, POPT_ARG_INT, &court_border_width, 0, "Width of border box for court cards", "pixels" },
       { "no-left", 0, POPT_ARG_NONE, &noleft, 0, "No indices on left" },
       { "right", 0, POPT_ARG_NONE, &right, 0, "Indices on right" },
       { "top-only", 0, POPT_ARG_NONE, &toponly, 0, "Indices only on top of card" },
