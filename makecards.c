@@ -56,6 +56,7 @@ int margin = 12;
 int pipmargin = 5;
 int index_width = 0;
 int courtgrow = 0;
+int courtstretch = 0;
 int court_border_width = 0;
 int courtmargin = 2;
 int topmargin = 0;
@@ -511,6 +512,7 @@ void makebox(int *bwp, int *bhp, char suit, char value) {
 
   if (strchr("JQK", value)) {
     bw += THO * courtgrow;  // extra width
+    bh += THO * courtstretch;  // extra height
   }
 
   if (suit == 'J'
@@ -1932,6 +1934,7 @@ int main(int argc, const char *argv[]) {
       { "margin-pip", 0, POPT_ARG_INT, &pipmargin, 0, "Pip margin", "pixels" },
       { "index-width", 0, POPT_ARG_INT, &index_width, 0, "Stroke width of card index symbols", "pixels" },
       { "court-grow", 0, POPT_ARG_INT, &courtgrow, 0, "Extra width on court cards", "pixels" },
+      { "court-stretch", 0, POPT_ARG_INT, &courtstretch, 0, "Extra height on court cards", "pixels" },
       { "court-border-width", 0, POPT_ARG_INT, &court_border_width, 0, "Width of border box for court cards", "pixels" },
       { "no-left", 0, POPT_ARG_NONE, &noleft, 0, "No indices on left" },
       { "right", 0, POPT_ARG_NONE, &right, 0, "Indices on right" },
