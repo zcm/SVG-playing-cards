@@ -72,6 +72,7 @@ int fourcolour = 0;
 int pipn = 1;
 int valuen = 0;
 char *extra = NULL;
+char *extra_dir = "svg";
 const char *back = "Diamond";
 const char *ace = "Fancy";
 const char *ace1 = "www.me.uk";
@@ -699,7 +700,7 @@ void destroy_layer(layer_t *layer) {
 excard *load_excard(char *name, char suit, char value) {
   char *filename;
 
-  if (!asprintf(&filename, "svg/%s.svg", name)) {
+  if (!asprintf(&filename, "%s/%s.svg", extra_dir, name)) {
     errx(1, "malloc");
   }
 
@@ -1923,6 +1924,7 @@ int main(int argc, const char *argv[]) {
       { "twelve", 0, POPT_ARG_NONE, &twelve, 0, "Include a twelve" },
       { "thirteen", 0, POPT_ARG_NONE, &thirteen, 0, "Include a thirteen" },
       { "extra", 0, POPT_ARG_STRING, &extra, 0, "Extra cards to include (comma-separated)" },
+      { "extra-dir", 0, POPT_ARG_STRING, &extra_dir, 0, "SVG source directory for extra cards" },
       { "color-map", 0, POPT_ARG_STRING, &color_map_str, 0, "Mapping of layer colors to output colors" },
       { "ignis", 0, POPT_ARG_NONE, &ignis, 0, "Ignis Jokers" },
       { "modern", 0, POPT_ARG_NONE, &modern, 0, "Modern facing of court cards" },
