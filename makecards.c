@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <inttypes.h>
 #include <popt.h>
 #include <time.h>
 #include <sys/time.h>
@@ -51,6 +52,7 @@ int thirteen = 0;
 int court_border_under = 0;
 int noborder = 0;
 int bleed = 0;
+char *dpi_bleed = NULL;
 int corner = 12;
 int margin = 12;
 int pipmargin = 5;
@@ -540,6 +542,95 @@ void makebox(int *bwp, int *bhp, char suit, char value) {
   *bhp = bh;
 }
 
+void parse_unit_multiplier(char *unit, intmax_t *out) {
+  if (unit[0] == 'i' && unit[1] == 'n') {
+    *out = 96;
+  }
+}
+
+intmax_t units2tho(const char *in) {
+  intmax_t multiplier = 1;
+  char *work = alloca(sizeof (char) * (strlen(in) + 3));
+  char *startwork = work;
+  strcpy(work, in);
+
+  while (*work >= '0' && *work <= '9') {
+    work++;
+  }
+
+  int remaining = 3;
+
+  if (*work == '.') {
+    char *ahead = work + 1;
+    while (*ahead >= '0' && *ahead <= '9' && remaining > 0) {
+      remaining--;
+      *work++ = *ahead++;
+    }
+    // I guess we should round properly here but truncating is SO much easier
+  }
+
+  while (remaining--) {
+    parse_unit_multiplier(work, &multiplier);
+    *work++ = '0';
+  }
+
+  *work = '\0';
+
+  while (multiplier == 1 && ++*work) {
+    parse_unit_multiplier(work, &multiplier);
+  }
+
+  char *endptr;
+
+  return multiplier * strtoimax(startwork, &endptr, 10);
+}
+
+void compute_dpi_bleed(
+    const char *w, const char *h, int *pxmod, char *out_w, char *out_h) {
+  if (!dpi_bleed) {
+    *pxmod = 0;
+    return;
+  }
+
+  char *dpi, *bleedpx = strdupa(dpi_bleed);
+
+  if ((dpi = strchr(bleedpx, '@'))) {
+    *dpi++ = '\0';
+  } else {
+    dpi = "96";
+  }
+
+  size_t w_len = strlen(w),
+         h_len = strlen(h);
+
+  if (w_len < 3 || h_len < 3) {
+    errx(1, "invalid width/height units: %s x %s", w, h);
+  }
+
+  char units[3] = { w[w_len - 2], w[w_len - 1] };
+  intmax_t i_w = units2tho(w),
+           i_h = units2tho(h),
+           i_px = units2tho(bleedpx),
+           i_dpi = units2tho(dpi);
+
+  i_px = i_px * 96000 / i_dpi;
+
+  if (!strcmp(units, "in")) {
+    strcpy(out_w, tho((i_w + i_px * 2) / 96));
+    strcpy(out_h, tho((i_h + i_px * 2) / 96));
+  } else if (!strcmp(units, "px")) {
+    strcpy(out_w, tho(i_w + i_px * 2));
+    strcpy(out_h, tho(i_h + i_px * 2));
+  } else {
+    errx(1, "unimplemented units: %s", units);
+  }
+
+  strcpy(out_w + strlen(out_w), units);
+  strcpy(out_h + strlen(out_h), units);
+
+  *pxmod = (int) i_px;
+}
+
 xml_t makeroot(char suit, char value) {
   xml_t root = xml_tree_new("svg");
   xml_element_set_namespace(
@@ -547,13 +638,18 @@ xml_t makeroot(char suit, char value) {
   xml_namespace(root, "^xlink", "http://www.w3.org/1999/xlink");
   root->tree->encoding = NULL;
 
-  xml_add(root, "@width", width);
-  xml_add(root, "@height", height);
+  int pxmod;
+  char dpi_bleed_w[20] = { '\0' }, dpi_bleed_h[20] = { '\0' };
+
+  compute_dpi_bleed(width, height, &pxmod, dpi_bleed_w, dpi_bleed_h);
+
+  xml_add(root, "@width", *dpi_bleed_w ? dpi_bleed_w : width);
+  xml_add(root, "@height", *dpi_bleed_h ? dpi_bleed_h : height);
   xml_addf(root, "@viewBox", "%s %s %s %s",
-      tho(-THO * w / 2 - THO * bleed),
-      tho(-THO * h / 2 - THO * bleed),
-      tho(THO * w + THO * bleed * 2),
-      tho(THO * h + THO * bleed * 2));
+      tho(-THO * w / 2 - THO * bleed - pxmod),
+      tho(-THO * h / 2 - THO * bleed - pxmod),
+      tho(THO * w + THO * bleed * 2 + pxmod * 2),
+      tho(THO * h + THO * bleed * 2 + pxmod * 2));
   xml_add(root, "@class", "card");
 
   // Stretch to required size both ways
@@ -1932,6 +2028,7 @@ int main(int argc, const char *argv[]) {
       { "no-flip", 0, POPT_ARG_NONE, &noflip, 0, "Old style - pips all the same way up" },
       { "symmetric", 0, POPT_ARG_NONE, &symmetric, 0, "Symmetric pips" },
       { "bleed", 0, POPT_ARG_INT, &bleed, 0, "Bleed area", "pixels" },
+      { "dpi-bleed", 0, POPT_ARG_STRING, &dpi_bleed, 0, "DPI-based bleed area", "pixels@dpi" },
       { "corner", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &corner, 0, "Corner radius", "pixels" },
       { "margin", 0, POPT_ARG_INT | POPT_ARGFLAG_SHOW_DEFAULT, &margin, 0, "Margin", "pixels" },
       { "margin-top", 0, POPT_ARG_INT, &topmargin, 0, "Margin at top", "pixels" },
