@@ -60,6 +60,7 @@ int index_width = 0;
 int courtgrow = 0;
 int courtstretch = 0;
 int court_border_width = 0;
+int court_pip_offset = 0;
 int courtmargin = 2;
 int topmargin = 0;
 int backmargin = 0;
@@ -1782,6 +1783,9 @@ void makecard(char suit, char value, excard *extra_card) {
           x = -x;
         }
 
+        x += THO * court_pip_offset;
+        y -= THO * court_pip_offset;
+
         xml_t p = pip(x, -y, sx);
         if (ghost && !(s - suits) % 2) {
           xml_add(p, "@fill", dict_gets(color_map, "black"));
@@ -2038,6 +2042,7 @@ int main(int argc, const char *argv[]) {
       { "court-grow", 0, POPT_ARG_INT, &courtgrow, 0, "Extra width on court cards", "pixels" },
       { "court-stretch", 0, POPT_ARG_INT, &courtstretch, 0, "Extra height on court cards", "pixels" },
       { "court-border-width", 0, POPT_ARG_INT, &court_border_width, 0, "Width of border box for court cards", "pixels" },
+      { "court-pip-offset", 0, POPT_ARG_INT, &court_pip_offset, 0, "Extra distance for pips from borders on court cards", "pixels" },
       { "no-left", 0, POPT_ARG_NONE, &noleft, 0, "No indices on left" },
       { "right", 0, POPT_ARG_NONE, &right, 0, "Indices on right" },
       { "top-only", 0, POPT_ARG_NONE, &toponly, 0, "Indices only on top of card" },
