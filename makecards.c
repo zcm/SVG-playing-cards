@@ -48,6 +48,7 @@ int one = 0;
 int eleven = 0;
 int twelve = 0;
 int thirteen = 0;
+int court_border_under = 0;
 int noborder = 0;
 int bleed = 0;
 int corner = 12;
@@ -1374,6 +1375,17 @@ void makecard(char suit, char value, excard *extra_card) {
     }
   }
 
+  void court_border() {
+    xml_t box = adddefX(root, bw, bh, suit, value);
+    xml_add(box, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
+    xml_add(box, "@fill", "none");
+  }
+
+  // Box (underlay for court card artwork) when using --court-border-under
+  if (court_border_under && strchr("JQK", value) && !plain && !indexonly) {
+    court_border();
+  }
+
   if (s && v) {  // Pips
     if (box
         && (indexonly || plain || !strchr("JQK", value))
@@ -1851,10 +1863,8 @@ void makecard(char suit, char value, excard *extra_card) {
     }
 
     // Box (overlay for court card artwork)
-    if (strchr("JQK", value) && !plain && !indexonly) {
-      xml_t box = adddefX(root, bw, bh, suit, value);
-      xml_add(box, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
-      xml_add(box, "@fill", "none");
+    if (!court_border_under && strchr("JQK", value) && !plain && !indexonly) {
+      court_border();
     }
   }
 
@@ -1923,6 +1933,7 @@ int main(int argc, const char *argv[]) {
       { "eleven", 0, POPT_ARG_NONE, &eleven, 0, "Include an eleven" },
       { "twelve", 0, POPT_ARG_NONE, &twelve, 0, "Include a twelve" },
       { "thirteen", 0, POPT_ARG_NONE, &thirteen, 0, "Include a thirteen" },
+      { "court-border-under", 0, POPT_ARG_NONE, &court_border_under, 0, "Position the border for court cards under the art instead of on top" },
       { "extra", 0, POPT_ARG_STRING, &extra, 0, "Extra cards to include (comma-separated)" },
       { "extra-dir", 0, POPT_ARG_STRING, &extra_dir, 0, "SVG source directory for extra cards" },
       { "color-map", 0, POPT_ARG_STRING, &color_map_str, 0, "Mapping of layer colors to output colors" },
