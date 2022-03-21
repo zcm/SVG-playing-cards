@@ -54,6 +54,7 @@ int bleed = 0;
 int corner = 12;
 int margin = 12;
 int pipmargin = 5;
+int index_width = 0;
 int courtgrow = 0;
 int court_border_width = 0;
 int courtmargin = 2;
@@ -418,7 +419,7 @@ xml_t addsymbolvalue(xml_t e, char suit, char value) {
       xml_add(path, "@opacity", "0.5");
     }
     xml_addf(path, "@stroke-width", "%d",
-        value_path[valuen][v - values].stroke);
+        index_width ?: value_path[valuen][v - values].stroke);
     xml_add(path, "@stroke-linecap", "square");
     xml_add(path, "@stroke-miterlimit", "1.5");
     xml_add(path, "@fill", "none");
@@ -1929,6 +1930,7 @@ int main(int argc, const char *argv[]) {
       { "margin-top", 0, POPT_ARG_INT, &topmargin, 0, "Margin at top", "pixels" },
       { "margin-back", 0, POPT_ARG_INT, &backmargin, 0, "Back margin", "pixels" },
       { "margin-pip", 0, POPT_ARG_INT, &pipmargin, 0, "Pip margin", "pixels" },
+      { "index-width", 0, POPT_ARG_INT, &index_width, 0, "Stroke width of card index symbols", "pixels" },
       { "court-grow", 0, POPT_ARG_INT, &courtgrow, 0, "Extra width on court cards", "pixels" },
       { "court-border-width", 0, POPT_ARG_INT, &court_border_width, 0, "Width of border box for court cards", "pixels" },
       { "no-left", 0, POPT_ARG_NONE, &noleft, 0, "No indices on left" },
