@@ -50,6 +50,8 @@ int eleven = 0;
 int twelve = 0;
 int thirteen = 0;
 int court_border_under = 0;
+int no_joker_pips = 0;
+int force_joker_value = 0;
 int noborder = 0;
 int bleed = 0;
 char *dpi_bleed = NULL;
@@ -117,7 +119,7 @@ struct pip_s {
   const char *path;
   int width;
   int height;
-} pip_path[PIPS][4];
+} pip_path[PIPS][5];
 
 #define VALUES 2
 struct value_s {
@@ -163,6 +165,32 @@ xml_t findid(xml_t e, const char *id) {
   }
 
   return s;
+}
+
+static inline size_t get_pip_index(const char suit) {
+  switch (suit) {
+    // *INDENT-OFF*
+    case 'S': return 0;
+    case 'H': return 1;
+    case 'C': return 2;
+    case 'D': return 3;
+    case 'J': return 4;
+    // *INDENT-ON*
+  }
+  return -1;
+}
+
+static inline size_t get_color_index(const char suit, const char value) {
+  switch (suit) {
+    // *INDENT-OFF*
+    case 'S': return 0;
+    case 'H': return 1;
+    case 'C': return 2;
+    case 'D': return 3;
+    case 'J': return (size_t) ('2' - value);
+    // *INDENT-ON*
+  }
+  return -1;
 }
 
 xml_t adddefX(xml_t e, int bw, int bh, char suit, char value) {
@@ -366,8 +394,6 @@ xml_t addsymbolsuit(xml_t e, char suit, char value, int *notfilledp) {
       defs = xml_element_add_ns_after(root, NULL, "defs", root);
     }
 
-    char *s = strchr(suits, suit);
-
     xml_t symbol = xml_element_add_ns_after(defs, NULL, "symbol", defs);
     xml_add(symbol, "@id", id);
     xml_add(symbol, "@viewBox", "-600 -600 1200 1200");
@@ -383,9 +409,10 @@ xml_t addsymbolsuit(xml_t e, char suit, char value, int *notfilledp) {
     }
 
     xml_t path = xml_element_add(symbol, "path");
-    xml_add(path, "@d", pip_path[pipn][s - suits].path);
+    xml_add(path, "@d", pip_path[pipn][get_pip_index(suit)].path);
     if (!notfilled) {
-      xml_add(path, "@fill", dict_gets(color_map, colour[s - suits]));
+      xml_add(path, "@fill",
+          dict_gets(color_map, colour[get_color_index(suit, value)]));
     }
   }
 
@@ -409,7 +436,6 @@ xml_t addsymbolvalue(xml_t e, char suit, char value) {
       defs = xml_element_add_ns_after(root, NULL, "defs", root);
     }
 
-    char *s = strchr(suits, suit);
     char *v = strchr(values, value);
 
     xml_t symbol = xml_element_add_ns_after(defs, NULL, "symbol", defs);
@@ -419,9 +445,10 @@ xml_t addsymbolvalue(xml_t e, char suit, char value) {
 
     xml_t path = xml_element_add(symbol, "path");
     xml_add(path, "@d", value_path[valuen][v - values].path);
+    size_t color_index = get_color_index(suit, value);
     xml_add(path, "@stroke",
-        dict_gets(color_map, ghost ? black : colour[s - suits]));
-    if (grey && ((s - suits) & 2)) {
+        dict_gets(color_map, ghost ? black : colour[color_index]));
+    if (grey && (color_index & 2)) {
       xml_add(path, "@opacity", "0.5");
     }
     xml_addf(path, "@stroke-width", "%d",
@@ -842,6 +869,8 @@ int makecourt(xml_t root, char suit, char value, excard *extra_card) {
     return 0;
   }
 
+  size_t color_index = get_color_index(suit, value);
+
   makebox(&bw, &bh, suit, value);
 
   int layer = 0;
@@ -969,7 +998,7 @@ int makecourt(xml_t root, char suit, char value, excard *extra_card) {
         int notfilled = 0;
 
         // Outline for black on black, or white background for grey
-        if (ghost && !((s - suits) & 1)) {
+        if (ghost && !(color_index & 1)) {
           xml_t x = addsymbolsuit(symbol, suit, value, &notfilled);
           xml_addf(x, "@height", "%d", pips[n][p].s);
           if (!nowidthonuse) {
@@ -1004,7 +1033,7 @@ int makecourt(xml_t root, char suit, char value, excard *extra_card) {
         if (notfilled) {
           xml_add(x, "@fill",
               dict_gets(color_map,
-                (ghost && !(s - suits) % 2) ? "black" : colour[s - suits]));
+                (ghost && !color_index % 2) ? "black" : colour[color_index]));
         }
         if (pips[n][p].border) {
           xml_add(x, "@stroke", dict_gets(color_map, ghost ? black : "stroke"));
@@ -1451,6 +1480,8 @@ void makecard(char suit, char value, excard *extra_card) {
   char *v = strchr(values, value);
   int bw, bh;
 
+  size_t color_index = get_color_index(suit, value);
+
   makebox(&bw, &bh, suit, value);
   xml_t root = makeroot(suit, value);
 
@@ -1499,7 +1530,7 @@ void makecard(char suit, char value, excard *extra_card) {
     court_border();
   }
 
-  if (s && v) {  // Pips
+  if ((s && v) || (suit == 'J' && !no_joker_pips)) {  // Pips
     if (box
         && (indexonly || plain || !strchr("JQK", value))
         && ((!*ace1 && !*ace2)
@@ -1564,7 +1595,7 @@ void makecard(char suit, char value, excard *extra_card) {
       y -= h / 2;
 
       if (notfilled && !ghost) {
-        xml_add(p, "@fill", dict_gets(color_map, colour[s - suits]));
+        xml_add(p, "@fill", dict_gets(color_map, colour[color_index]));
       }
       xml_add(p, "@height", tho(h));
       if (!nowidthonuse) {
@@ -1572,7 +1603,7 @@ void makecard(char suit, char value, excard *extra_card) {
       }
       xml_add(p, "@x", tho(x));
       xml_add(p, "@y", tho(y));
-      if (grey && ((s - suits) & 2)) {
+      if (grey && (color_index & 2)) {
         xml_add(p, "@opacity", "0.5");
       }
       if (noflip && symmetric && h == THO * ph) {
@@ -1583,7 +1614,7 @@ void makecard(char suit, char value, excard *extra_card) {
     }
 
     void side2(int y) {  // half the pips
-      if (indexonly) {
+      if (indexonly || suit == 'J') {
         return;
       }
 
@@ -1656,45 +1687,63 @@ void makecard(char suit, char value, excard *extra_card) {
       }
 
       if (indices && (!noleft || right)) {  // corners
+        int value_left_x =
+            -THO * w / 2 + THO * margin - THO * vh / 5;
+        int value_left_y =
+            -THO * h / 2 + THO * (topmargin > corner ? topmargin : corner);
+        int value_right_x =
+            THO * w / 2 - THO * margin + THO * vh / 5 - THO * vh;
+        int value_right_y =
+            -THO * h / 2 + THO * (topmargin > corner ? topmargin : corner);
+
         // Value
-        if (!noleft) {  // Corner
+        if (!noleft && (suit != 'J' || force_joker_value)) {  // Corner
           xml_t x = addsymbolvalue(g, suit, value);
           xml_add(x, "@height", tho(THO * vh));
           if (!nowidthonuse) {
             xml_add(x, "@width", tho(THO * vh));
           }
-          xml_add(x, "@x",
-              tho(-THO * w / 2 + THO * margin - THO * vh / 5));
-          xml_add(x, "@y",
-              tho(-THO * h / 2 + THO * (topmargin > corner
-                                        ? topmargin : corner)));
+          xml_add(x, "@x", tho(value_left_x));
+          xml_add(x, "@y", tho(value_left_y));
         }
 
-        if (right) {
+        if (right && (suit != 'J' || force_joker_value)) {
           xml_t x = addsymbolvalue(g, suit, value);
           xml_add(x, "@height", tho(THO * vh));
           if (!nowidthonuse) {
             xml_add(x, "@width", tho(THO * vh));
           }
-          xml_add(x, "@x",
-              tho(THO * w / 2 - THO * margin + THO * vh / 5 - THO * vh));
-          xml_add(x, "@y",
-              tho(-THO * h / 2 + THO * (topmargin > corner
-                                        ? topmargin : corner)));
+          xml_add(x, "@x", tho(value_right_x));
+          xml_add(x, "@y", tho(value_right_y));
         }
 
         // Same width as value
         int ph2 = THO * vh * 65 / 100 * THO / pipwidth('C', THO);
+        int pip_left_x =
+          -THO * w / 2 + THO * margin - THO * vh / 5 + THO * vh / 2;
+        int pip_left_y =
+            -THO * h / 2 + THO * vh
+            + THO * (topmargin > corner ? topmargin : corner)
+            + THO * pipmargin + ph2 / 2;
+        int pip_right_x =
+            THO * w / 2 - THO * margin + THO * vh / 5 + THO * vh / 2 - THO * vh;
+        int pip_right_y =
+            -THO * h / 2 + THO * vh
+            + THO * (topmargin > corner ? topmargin : corner)
+            + THO * pipmargin + ph2 / 2;
+
+        if (suit == 'J' && !force_joker_value) {
+          ph2 = THO * vh * 3 / 2;
+          pip_left_x += THO * vh / 5;
+          pip_left_y = value_left_y + ph2 / 3;
+          pip_right_x -= THO * vh / 5;
+          pip_right_y = value_right_y + ph2 / 3;
+        }
 
         // pip
         if (!noleft) {
-          if (ghost && colour[s - suits] != black) {
-            xml_t p2 = pip(
-                -THO * w / 2 + THO * margin - THO * vh / 5 + THO * vh / 2,
-                -THO * h / 2 + THO * vh + THO * (topmargin > corner
-                                                 ? topmargin : corner)
-                + THO * pipmargin + ph2 / 2,
-                ph2);
+          if (ghost && colour[color_index] != black) {
+            xml_t p2 = pip(pip_left_x, pip_left_y, ph2);
 
             xml_add(p2, "@stroke", dict_gets(color_map, black));
             xml_add(p2, "@stroke-width", "100");
@@ -1702,27 +1751,16 @@ void makecard(char suit, char value, excard *extra_card) {
             xml_add(p2, "@stroke-linecap", "round");
           }
 
-          xml_t p2 = pip(
-              -THO * w / 2 + THO * margin - THO * vh / 5 + THO * vh / 2,
-              -THO * h / 2 + THO * vh + THO * (topmargin > corner
-                                               ? topmargin : corner)
-              + THO * pipmargin + ph2 / 2,
-              ph2);
+          xml_t p2 = pip(pip_left_x, pip_left_y, ph2);
 
           if (ghost) {
-            xml_add(p2, "@fill", dict_gets(color_map, colour[s - suits]));
+            xml_add(p2, "@fill", dict_gets(color_map, colour[color_index]));
           }
         }
 
         if (right) {
-          if (ghost && colour[s - suits] != black) {
-            xml_t p2 = pip(
-                THO * w / 2 - THO * margin
-                + THO * vh / 5 + THO * vh / 2 - THO * vh,
-                -THO * h / 2 + THO * vh + THO * (topmargin > corner
-                                                 ? topmargin : corner)
-                + THO * pipmargin + ph2 / 2,
-                ph2);
+          if (ghost && colour[color_index] != black) {
+            xml_t p2 = pip(pip_right_x, pip_right_y, ph2);
 
             xml_add(p2, "@stroke", dict_gets(color_map, black));
             xml_add(p2, "@stroke-width", "100");
@@ -1730,16 +1768,10 @@ void makecard(char suit, char value, excard *extra_card) {
             xml_add(p2, "@stroke-linecap", "round");
           }
 
-          xml_t p2 = pip(
-              THO * w / 2 - THO * margin
-              + THO * vh / 5 + THO * vh / 2 - THO * vh,
-              -THO * h / 2 + THO * vh + THO * (topmargin > corner
-                                               ? topmargin : corner)
-              + THO * pipmargin + ph2 / 2,
-              ph2);
+          xml_t p2 = pip(pip_right_x, pip_right_y, ph2);
 
           if (ghost) {
-            xml_add(p2, "@fill", dict_gets(color_map, colour[s - suits]));
+            xml_add(p2, "@fill", dict_gets(color_map, colour[color_index]));
           }
         }
       }
@@ -1789,7 +1821,7 @@ void makecard(char suit, char value, excard *extra_card) {
         y -= THO * court_pip_offset_y;
 
         xml_t p = pip(x, -y, sx);
-        if (ghost && !(s - suits) % 2) {
+        if (ghost && !color_index % 2) {
           xml_add(p, "@fill", dict_gets(color_map, "black"));
         }
       }
@@ -1943,7 +1975,7 @@ void makecard(char suit, char value, excard *extra_card) {
 
     side(1, 1);
 
-    if (!symmetric && !indexonly) {
+    if (!symmetric && !indexonly && suit != 'J') {
       if (suit == 'C' && value == '9' && !noflip) {
         pip(0, -THO * ph / 10, THO * ph);
       } else if (strchr("1359ED", value)) {
@@ -2057,6 +2089,8 @@ int main(int argc, const char *argv[]) {
       { "twelve", 0, POPT_ARG_NONE, &twelve, 0, "Include a twelve" },
       { "thirteen", 0, POPT_ARG_NONE, &thirteen, 0, "Include a thirteen" },
       { "court-border-under", 0, POPT_ARG_NONE, &court_border_under, 0, "Position the border for court cards under the art instead of on top" },
+      { "no-joker-pips", 0, POPT_ARG_NONE, &no_joker_pips, 0, "Disable pips on joker cards" },
+      { "force-joker-value", 0, POPT_ARG_NONE, &force_joker_value, 0, "Force a value to be printed on joker cards (default: 1)" },
       { "extra", 0, POPT_ARG_STRING, &extra, 0, "Extra cards to include (comma-separated)" },
       { "extra-dir", 0, POPT_ARG_STRING, &extra_dir, 0, "SVG source directory for extra cards" },
       { "color-map", 0, POPT_ARG_STRING, &color_map_str, 0, "Mapping of layer colors to output colors" },
@@ -2453,41 +2487,43 @@ int main(int argc, const char *argv[]) {
 }
 
 int pipwidth(char suit, int ph) {
-  char *s = strchr(suits, suit);
+  size_t pip_index = get_pip_index(suit);
 
-  if (!s) {
+  if (pip_index == -1) {
     return 0;
   }
 
-  return pip_path[pipn][s - suits].width * ph / 1200;
+  return pip_path[pipn][pip_index].width * ph / 1200;
 }
 
 int pipheight(char suit, int ph) {
-  char *s = strchr(suits, suit);
+  size_t pip_index = get_pip_index(suit);
 
-  if (!s) {
+  if (pip_index == -1) {
     return 0;
   }
 
-  return pip_path[pipn][s - suits].height * ph / 1200;
+  return pip_path[pipn][pip_index].height * ph / 1200;
 }
 
 // Data
 
 // Fill, target 800 wide (-400 to 400) and 1000 high (-500 to 500)
-struct pip_s pip_path[PIPS][4] = {
+struct pip_s pip_path[PIPS][5] = {
   // *INDENT-OFF*
   {  // Old
    {"M0 -500C350 -250 460 -100 460 100C460 300 260 340 210 340C110 340 55 285 100 300L130 500L-130 500L-100 300C-55 285 -110 340 -210 340C-260 340 -460 300 -460 100C-460 -100 -350 -250 0 -500Z", 920, 1000},
    {"M0 -300A230 230 0 0 1 460 -150C400 0 200 300 0 500C-200 300 -400 0 -460 -150A230 230 0 0 1 0 -300Z", 943, 967},
    {"M-100 500L100 500L100 340A260 260 0 1 0 200 -150A230 230 0 1 0 -200 -150A260 260 0 1 0 -100 340Z", 959, 994},
-   {"M-400 0L0 -500L400 0L 0 500Z", 800, 1000 }
+   {"M-400 0L0 -500L400 0L 0 500Z", 800, 1000 },
+   {"M 0,-400.75731 A 400.75735,400.75735 0 0 0 -400.75731,0 400.75735,400.75735 0 0 0 0,400.75731 400.75735,400.75735 0 0 0 400.75731,0 400.75735,400.75735 0 0 0 0,-400.75731 Z m 0,75.142 A 325.61535,325.61535 0 0 1 325.61531,0 325.61535,325.61535 0 0 1 191.34793,263.45293 325.61535,325.61535 0 0 1 0,325.61531 325.61535,325.61535 0 0 1 -191.37921,263.43532 L -0.027377,130.26569 191.34793,263.45293 123.83364,40.263575 309.62612,-100.61199 76.521565,-105.36318 -0.027377,-325.61335 l -76.550911,220.25017 -233.102632,4.75119 185.79056,140.875565 -67.50452,223.160005 A 325.61535,325.61535 0 0 1 -325.61531,0 a 325.61535,325.61535 0 0 1 15.9344,-100.61199 325.61535,325.61535 0 0 1 309.653533,-225.00136 325.61535,325.61535 0 0 1 0.02651,-0.002 z", 800, 1000 }
   },
   {  // New
    {"M0 -500C100 -250 355 -100 355 185A150 150 0 0 1 55 185A10 10 0 0 0 35 185C35 385 85 400 130 500L-130 500C-85 400 -35 385 -35 185A10 10 0 0 0 -55 185A150 150 0 0 1 -355 185C-355 -100 -100 -250 0 -500Z", 710, 1000},
    {"M0 -300C0 -400 100 -500 200 -500C300 -500 400 -400 400 -250C400 0 0 400 0 500C0 400 -400 0 -400 -250C-400 -400 -300 -500 -200 -500C-100 -500 0 -400 -0 -300Z", 800, 1000},
    {"M30 150C35 385 85 400 130 500L-130 500C-85 400 -35 385 -30 150A10 10 0 0 0 -50 150A210 210 0 1 1 -124 -51A10 10 0 0 0 -110 -65A230 230 0 1 1 110 -65A10 10 0 0 0 124 -51A210 210 0 1 1 50 150A10 10 0 0 0 30 150Z", 933, 997},
-   {"M-400 0C-350 0 0 -450 0 -500C0 -450 350 0 400 0C350 0 0 450 0 500C0 450 -350 0 -400 0Z", 800, 1000 }
+   {"M-400 0C-350 0 0 -450 0 -500C0 -450 350 0 400 0C350 0 0 450 0 500C0 450 -350 0 -400 0Z", 800, 1000 },
+   {"M 0,-400.75731 A 400.75735,400.75735 0 0 0 -400.75731,0 400.75735,400.75735 0 0 0 0,400.75731 400.75735,400.75735 0 0 0 400.75731,0 400.75735,400.75735 0 0 0 0,-400.75731 Z m 0,75.142 A 325.61535,325.61535 0 0 1 325.61531,0 325.61535,325.61535 0 0 1 191.34793,263.45293 325.61535,325.61535 0 0 1 0,325.61531 325.61535,325.61535 0 0 1 -191.37921,263.43532 L -0.027377,130.26569 191.34793,263.45293 123.83364,40.263575 309.62612,-100.61199 76.521565,-105.36318 -0.027377,-325.61335 l -76.550911,220.25017 -233.102632,4.75119 185.79056,140.875565 -67.50452,223.160005 A 325.61535,325.61535 0 0 1 -325.61531,0 a 325.61535,325.61535 0 0 1 15.9344,-100.61199 325.61535,325.61535 0 0 1 309.653533,-225.00136 325.61535,325.61535 0 0 1 0.02651,-0.002 z", 800, 1000 }
   }
   // *INDENT-ON*
 };
