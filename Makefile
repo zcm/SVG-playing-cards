@@ -35,10 +35,10 @@ uncrustify: .uncrustify.cfg makecards.c makecourt.c
 	-uncrustify --replace --no-backup --mtime -c $?
 
 makecards: makecards.c shared.c Makefile AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o court.h flytools/build/libflytools.a
-	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o flytools/build/libflytools.a -lcurl -lz
+	$(CC) $(CFLAGS) -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o QR/iec18004.o 1dbar/1dbar.o Image/image.o Reedsol/reedsol.o flytools/build/libflytools.a -lcurl -lz
 
 makecourt: makecourt.c shared.c Makefile AXL/axl.o flytools/build/libflytools.a
-	cc -O -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o flytools/build/libflytools.a -lcurl
+	$(CC) $(CFLAGS) -o $@ $< ${OPTS} -lpopt -DMAIN AXL/axl.o flytools/build/libflytools.a -lcurl
 
 SVGFILES := $(wildcard svg/??.svg)
 court.h: makecourt ${SVGFILES}
